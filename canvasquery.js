@@ -5,7 +5,7 @@
   Canvas Query may be freely distributed under the MIT license.
 */
 
-cq = CanvasQuery = (function() {
+(function(window, undefined) {
 
 
   window.requestAnimationFrame = (function() {
@@ -897,6 +897,12 @@ cq = CanvasQuery = (function() {
 
   };
 
-  return $;
+  window["cq"] = window["CanvasQuery"] = $;
 
-})();
+  if(typeof define === "function" && define.amd) {
+    define([], function () {
+      return $;
+    });
+  }
+
+})(window);
