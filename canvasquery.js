@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.6.1
+  Canvas Query 0.6.2
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -506,6 +506,14 @@
       return this;
     },
 
+    resize: function(width, height) {
+      var $resized = $(width, height).drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, width, height);
+      this.canvas = $resized.canvas;
+      this.context = $resized.context;
+
+      return this;
+    },
+
     colorToMask: function(color) {
       color = $.color(color).toArray();
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -583,24 +591,6 @@
           sourcePixels[i + 1] = color[1] + (colorB[1] - color[1]) * value | 0;
           sourcePixels[i + 2] = color[2] + (colorB[2] - color[2]) * value | 0;
           sourcePixels[i + 3] = 255;
-        }
-      }
-
-      this.context.putImageData(sourceData, 0, 0);
-      return this;
-
-
-      color = this.color(color);
-
-      var sourceData = this.context.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
-      var sourcePixels = sourceData.data;
-
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(mask[i / 4]) {} else {
-          sourcePixels[i + 0] = color[0];
-          sourcePixels[i + 1] = color[1];
-          sourcePixels[i + 2] = color[2];
-          sourcePixels[i + 3] = color[3];
         }
       }
 
@@ -757,7 +747,7 @@
     },
 
     gaussianBlur: function(mix) {
-      return this.convolute([0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067, 0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292, 0.00019117, 0.00655965, 0.05472157, 0.11098164, 0.05472157, 0.00655965, 0.00019117, 0.00038771, 0.01330373, 0.11098164, 0.22508352, 0.11098164, 0.01330373, 0.00038771, 0.00019117, 0.00655965, 0.05472157, 0.11098164, 0.05472157, 0.00655965, 0.00019117, 0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292, 0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067], mix, 9);
+      return this.convolute([0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067, 0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292, 0.00019117, 0.00655965, 0.05472157, 0.11098164, 0.05472157, 0.00655965, 0.00019117, 0.00038771, 0.01330373, 0.11098164, 0.22508352, 0.11098164, 0.01330373, 0.00038771, 0.00019117, 0.00655965, 0.05472157, 0.11098164, 0.05472157, 0.00655965, 0.00019117, 0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292, 0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067], mix, 1);
     },
 
     sharpen: function(mix) {
@@ -949,7 +939,6 @@
   };
 
   window["cq"] = window["CanvasQuery"] = $;
-<<<<<<< HEAD
 
   if(typeof define === "function" && define.amd) {
     define([], function() {
@@ -957,13 +946,4 @@
     });
   }
 
-=======
-
-  if(typeof define === "function" && define.amd) {
-    define([], function () {
-      return $;
-    });
-  }
-
->>>>>>> 7c7630d0a39ba4e2b68a735850793a5d8a81a453
 })(window);
