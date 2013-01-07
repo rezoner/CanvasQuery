@@ -1,11 +1,11 @@
 /*     
-  Canvas Query 0.6.0
+  Canvas Query 0.6.1
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
 */
 
-cq = CanvasQuery = (function() {
+(function(window, undefined) {
 
 
   window.requestAnimationFrame = (function() {
@@ -521,23 +521,74 @@ cq = CanvasQuery = (function() {
       return mask;
     },
 
+    grayscaleToMask: function(color) {
+      color = $.color(color).toArray();
+      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var sourcePixels = sourceData.data;
+
+      var mask = [];
+
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        mask.push((sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3 | 0);
+      }
+
+      return mask;
+    },
+
     applyMask: function(mask) {
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(mask[i / 4]) {
+      var mode = typeof mask[0] === "boolean" ? "bool" : "byte";
 
-        } else {
-          sourcePixels[i + 3] = 0;
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        var value = mask[i / 4];
+
+        if(mode === "boolean") sourcePixels[i + 3] = 255 * value | 0;
+        else {
+          sourcePixels[i + 3] = value | 0;
         }
       }
+
 
       this.context.putImageData(sourceData, 0, 0);
       return this;
     },
 
-    fillMask: function(mask, color) {
+    fillMask: function(mask) {
+
+      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var sourcePixels = sourceData.data;
+
+      var maskType = typeof mask[0] === "boolean" ? "bool" : "byte";
+      var colorMode = arguments.length === 2 ? "normal" : "gradient";
+
+      var color = $.color(arguments[1]);
+      if(colorMode === "gradient") colorB = $.color(arguments[2]);
+
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        var value = mask[i / 4];
+
+        if(maskType === "byte") value /= 255;
+
+        if(colorMode === "normal") {
+          if(value) {
+            sourcePixels[i + 0] = color[0] * value | 0;
+            sourcePixels[i + 1] = color[1] * value | 0;
+            sourcePixels[i + 2] = color[2] * value | 0;
+            sourcePixels[i + 3] = value * 255 | 0;
+          }
+        } else {
+          sourcePixels[i + 0] = color[0] + (colorB[0] - color[0]) * value | 0;
+          sourcePixels[i + 1] = color[1] + (colorB[1] - color[1]) * value | 0;
+          sourcePixels[i + 2] = color[2] + (colorB[2] - color[2]) * value | 0;
+          sourcePixels[i + 3] = 255;
+        }
+      }
+
+      this.context.putImageData(sourceData, 0, 0);
+      return this;
+
 
       color = this.color(color);
 
@@ -897,6 +948,12 @@ cq = CanvasQuery = (function() {
 
   };
 
-  return $;
+  window["cq"] = window["CanvasQuery"] = $;
 
-})();
+  if(typeof define === "function" && define.amd) {
+    define([], function() {
+      return $;
+    });
+  }
+
+})(window);
