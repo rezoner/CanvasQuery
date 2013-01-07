@@ -949,6 +949,7 @@
   };
 
   window["cq"] = window["CanvasQuery"] = $;
+<<<<<<< HEAD
 
   if(typeof define === "function" && define.amd) {
     define([], function() {
@@ -956,4 +957,13 @@
     });
   }
 
+=======
+
+  if(typeof define === "function" && define.amd) {
+    define([], function () {
+      return $;
+    });
+  }
+
+>>>>>>> 7c7630d0a39ba4e2b68a735850793a5d8a81a453
 })(window);
