@@ -578,8 +578,10 @@
 
       var scale = (this.canvas.width / size) / this.canvas.width;
 
-      this.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0)
-      this.drawImage(this.canvas, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0, 0, 0, this.canvas.width, this.canvas.height)
+      var temp = cq(this.canvas.width, this.canvas.height);
+
+      temp.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0);
+      this.clear().drawImage(temp.canvas, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0, 0, 0, this.canvas.width, this.canvas.height);
 
       this.context.mozImageSmoothingEnabled = mozImageSmoothingEnabled;
       this.context.webkitImageSmoothingEnabled = webkitImageSmoothingEnabled;
