@@ -514,6 +514,73 @@
       return this;
     },
 
+    matchPalette: function(palette) {
+      var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+
+      for(var i = 0; i < imgData.data.length; i += 4) {
+        var difList = [];
+        for(var j = 0; j < palette.length; j++) {
+          var rgbVal = cq.hexToRgb(palette[j]);
+          var rDif = Math.abs(imgData.data[i] - rgbVal[0]),
+            gDif = Math.abs(imgData.data[i + 1] - rgbVal[1]),
+            bDif = Math.abs(imgData.data[i + 2] - rgbVal[2]);
+          difList.push(rDif + gDif + bDif);
+        }
+
+        var closestMatch = 0;
+        for(var j = 0; j < palette.length; j++) {
+          if(difList[j] < difList[closestMatch]) {
+            closestMatch = j;
+          }
+        }
+
+        var paletteRgb = cq.hexToRgb(palette[closestMatch]);
+        imgData.data[i] = paletteRgb[0];
+        imgData.data[i + 1] = paletteRgb[1];
+        imgData.data[i + 2] = paletteRgb[2];
+      }
+
+      this.context.putImageData(imgData, 0, 0);
+
+      return this;
+    },
+
+    getPalette: function() {
+      var palette = [ ];
+      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var sourcePixels = sourceData.data;
+
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if(sourcePixels[i + 3]) {
+          var hex = $.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
+          if(palette.indexOf(hex) === -1) palette.push(hex);
+        }
+      }
+      
+      return palette;
+    },
+
+    pixelize: function(size) {
+      if(!size) return this;
+      size = size || 4;
+
+      var mozImageSmoothingEnabled = this.context.mozImageSmoothingEnabled;
+      var webkitImageSmoothingEnabled = this.context.webkitImageSmoothingEnabled;
+
+      this.context.mozImageSmoothingEnabled = false;
+      this.context.webkitImageSmoothingEnabled = false;
+
+      var scale = (this.canvas.width / size) / this.canvas.width;
+
+      this.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0)
+      this.drawImage(this.canvas, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0, 0, 0, this.canvas.width, this.canvas.height)
+
+      this.context.mozImageSmoothingEnabled = mozImageSmoothingEnabled;
+      this.context.webkitImageSmoothingEnabled = webkitImageSmoothingEnabled;
+
+      return this;
+    },
+
     colorToMask: function(color) {
       color = $.color(color).toArray();
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
