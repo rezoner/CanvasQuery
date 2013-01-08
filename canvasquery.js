@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.6.2
+  Canvas Query 0.6.3
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -517,10 +517,16 @@
     matchPalette: function(palette) {
       var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
+      var rgbPalette = [ ];
+      for(var i = 0; i < palette.length; i++) {
+        rgbPalette.push($.color(palette[i]));
+      }
+      
+
       for(var i = 0; i < imgData.data.length; i += 4) {
         var difList = [];
-        for(var j = 0; j < palette.length; j++) {
-          var rgbVal = cq.hexToRgb(palette[j]);
+        for(var j = 0; j < rgbPalette.length; j++) {
+          var rgbVal = rgbPalette[j];
           var rDif = Math.abs(imgData.data[i] - rgbVal[0]),
             gDif = Math.abs(imgData.data[i + 1] - rgbVal[1]),
             bDif = Math.abs(imgData.data[i + 2] - rgbVal[2]);
