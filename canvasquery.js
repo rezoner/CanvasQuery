@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.6.3
+  Canvas Query 0.6.4
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -517,11 +517,11 @@
     matchPalette: function(palette) {
       var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
-      var rgbPalette = [ ];
+      var rgbPalette = [];
       for(var i = 0; i < palette.length; i++) {
         rgbPalette.push($.color(palette[i]));
       }
-      
+
 
       for(var i = 0; i < imgData.data.length; i += 4) {
         var difList = [];
@@ -552,7 +552,7 @@
     },
 
     getPalette: function() {
-      var palette = [ ];
+      var palette = [];
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
 
@@ -562,7 +562,7 @@
           if(palette.indexOf(hex) === -1) palette.push(hex);
         }
       }
-      
+
       return palette;
     },
 
@@ -943,6 +943,38 @@
       });
 
       callback.call(self, window.innerWidth, window.innerHeight);
+
+      return this;
+    },
+
+    onDropImage: function(callback) {
+      var self = this;
+      document.addEventListener('drop', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        var file = e.dataTransfer.files[0];
+
+        if(!(/image/i).test(file.type)) return false;
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+          var image = new Image;
+          
+          image.onload = function() {
+            callback.call(self, this);
+          };
+
+          image.src = e.target.result;
+        };
+
+        reader.readAsDataURL(file);
+
+      });
+
+      document.addEventListener("dragover", function(e) {
+        e.preventDefault();
+      });
 
       return this;
     }
