@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.6.4
+  Canvas Query 0.6.5
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -460,6 +460,44 @@
 
     createImageData: function(width, height) {
       return document.createElement("Canvas").getContext("2d").createImageData(width, height);
+    },
+
+
+    /* https://gist.github.com/3781251 */
+
+    mousePosition: function(event) {
+      var totalOffsetX = 0,
+        totalOffsetY = 0,
+        coordX = 0,
+        coordY = 0,
+        currentElement = event.srcElement,
+        mouseX = 0,
+        mouseY = 0;
+
+      // Traversing the parents to get the total offset
+      do {
+        totalOffsetX += currentElement.offsetLeft;
+        totalOffsetY += currentElement.offsetTop;
+      }
+      while ((currentElement = currentElement.offsetParent));
+      // Use pageX to get the mouse coordinates
+      if(event.pageX || event.pageY) {
+        mouseX = event.pageX;
+        mouseY = event.pageY;
+      }
+      // IE8 and below doesn't support event.pageX
+      else if(event.clientX || event.clientY) {
+        mouseX = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+        mouseY = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+      }
+      // Subtract the offset from the mouse coordinates
+      coordX = mouseX - totalOffsetX;
+      coordY = mouseY - totalOffsetY;
+
+      return {
+        x: coordX,
+        y: coordY
+      };
     }
   });
 
@@ -517,6 +555,7 @@
 
       return this;
     },
+
 
     matchPalette: function(palette) {
       var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -660,9 +699,9 @@
 
         if(colorMode === "normal") {
           if(value) {
-            sourcePixels[i + 0] = color[0] * value | 0;
-            sourcePixels[i + 1] = color[1] * value | 0;
-            sourcePixels[i + 2] = color[2] * value | 0;
+            sourcePixels[i + 0] = color[0] | 0;
+            sourcePixels[i + 1] = color[1] | 0;
+            sourcePixels[i + 2] = color[2] | 0;
             sourcePixels[i + 3] = value * 255 | 0;
           }
         } else {
@@ -897,27 +936,50 @@
       return this;
     },
 
+
+
     onMouseMove: function(callback) {
       var self = this;
       this.canvas.addEventListener("mousemove", function(e) {
-        callback.call(self, e.layerX, e.layerY);
+        var pos = $.mousePosition(e);
+        callback.call(self, pos.x, pos.y);
       });
+
+      this.canvas.addEventListener("touchmove", function(e) {
+        var pos = $.mousePosition(e);
+        callback.call(self, pos.x, pos.y);
+      });
+
       return this;
     },
 
     onMouseDown: function(callback) {
       var self = this;
       this.canvas.addEventListener("mousedown", function(e) {
-        callback.call(self, e.layerX, e.layerY, e.button);
+        var pos = $.mousePosition(e);
+        callback.call(self, pos.x, pos.y, e.button);
       });
+
+      this.canvas.addEventListener("touchstart", function(e) {
+        var pos = $.mousePosition(e);
+        callback.call(self, pos.x, pos.y);
+      });
+
       return this;
     },
 
     onMouseUp: function(callback) {
       var self = this;
       this.canvas.addEventListener("mouseup", function(e) {
-        callback.call(self, e.layerX, e.layerY, e.button);
+        var pos = $.mousePosition(e);
+        callback.call(self, pos.x, pos.y, e.button);
       });
+
+      this.canvas.addEventListener("touchend", function(e) {
+        var pos = $.mousePosition(e);
+        callback.call(self, pos.x, pos.y);
+      });
+
       return this;
     },
 
@@ -964,7 +1026,7 @@
 
         reader.onload = function(e) {
           var image = new Image;
-          
+
           image.onload = function() {
             callback.call(self, this);
           };
