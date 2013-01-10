@@ -907,7 +907,7 @@
 
     onMouseDown: function(callback) {
       var self = this;
-      this.canvas.addEventListener("mousemove", function(e) {
+      this.canvas.addEventListener("mousedown", function(e) {
         callback.call(self, e.layerX, e.layerY, e.button);
       });
       return this;
@@ -915,7 +915,7 @@
 
     onMouseUp: function(callback) {
       var self = this;
-      this.canvas.addEventListener("mousemove", function(e) {
+      this.canvas.addEventListener("mouseup", function(e) {
         callback.call(self, e.layerX, e.layerY, e.button);
       });
       return this;
