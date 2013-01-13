@@ -132,7 +132,7 @@
         b /= 255;
         var result = 0;
 
-        if(a < 128) result = 2 * a * b;
+        if(a < 0.5) result = 2 * a * b;
         else result = 1 - 2 * (1 - a) * (1 - b);
 
         return Math.min(255, Math.max(0, result * 255 | 0));
@@ -151,11 +151,11 @@
       },
 
       dodge: function(a, b) {
-        return 256 * a / (255 - b + 1);
+        return Math.min(256 * a / (255 - b + 1), 255);
       },
 
       burn: function(a, b) {
-        return 255 - 256 * (255 - a) / (b + 1);
+        return 255 - Math.min(256 * (255 - a) / (b + 1), 255);
       },
 
       multiply: function(a, b) {
@@ -163,7 +163,7 @@
       },
 
       divide: function(a, b) {
-        return $.limitValue(256 * a / (b + 1), 0, 255);
+        return Math.min(256 * a / (b + 1), 255);
       },
 
       screen: function(a, b) {
