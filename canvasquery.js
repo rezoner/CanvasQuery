@@ -670,7 +670,7 @@
       for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
         var value = mask[i / 4];
 
-        if(mode === "boolean") sourcePixels[i + 3] = 255 * value | 0;
+        if(mode === "bool") sourcePixels[i + 3] = 255 * value | 0;
         else {
           sourcePixels[i + 3] = value | 0;
         }
