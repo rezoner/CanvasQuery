@@ -1,11 +1,13 @@
 /*     
-  Canvas Query 0.6.5
+  Canvas Query 0.7
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
 */
 
 (function(window, undefined) {
+
+  var MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
 
 
   window.requestAnimationFrame = (function() {
@@ -20,8 +22,8 @@
       if(arguments.length === 0) {
         var canvas = $.createCanvas(window.innerWidth, window.innerHeight);
         window.addEventListener("resize", function() {
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
+          // canvas.width = window.innerWidth;
+          // canvas.height = window.innerHeight;
         });
       } else if(typeof selector === "string") {
         var canvas = $.createCanvas(document.querySelector(selector)[0]);
@@ -29,10 +31,10 @@
         var canvas = $.createCanvas(arguments[0], arguments[1]);
       } else if(selector instanceof Image) {
         var canvas = $.createCanvas(selector);
-      } else if(selector instanceof HTMLCanvasElement) {
-        var canvas = selector;
       } else if(selector instanceof $.Wrapper) {
         return selector;
+      } else {
+        var canvas = selector;
       }
 
       return new $.Wrapper(canvas);
@@ -163,7 +165,7 @@
       },
 
       divide: function(a, b) {
-        return Math.min(256 * a / (b + 1), 255);
+        return $.limitValue(256 * a / (b + 1), 0, 255);
       },
 
       screen: function(a, b) {
@@ -278,14 +280,9 @@
       return below;
     },
 
-    wrapValue: function(value, min, max) {
-      if(value < min) {
-        value = max + (value - min);
-      } else if(value > max) {
-        value = min + (value - max);
-      }
-
-      return value;
+    wrapValue: function(value, min, max) {      
+      var d = Math.abs(max - min);
+      return min + (value - min) % d;
     },
 
     limitValue: function(value, min, max) {
@@ -443,7 +440,7 @@
     },
 
     createCanvas: function(width, height) {
-      var result = document.createElement("Canvas");
+      var result = document.createElement("canvas");
 
       if(arguments[0] instanceof Image) {
         var image = arguments[0];
@@ -470,7 +467,7 @@
         totalOffsetY = 0,
         coordX = 0,
         coordY = 0,
-        currentElement = event.srcElement,
+        currentElement = event.target || event.srcElement,
         mouseX = 0,
         mouseY = 0;
 
@@ -537,10 +534,28 @@
       return this;
     },
 
+    circle: function(x, y, r) {
+      this.context.arc(x, y, r, 0, Math.PI * 2);
+      return this;
+    },
+
+    fillCircle: function(x, y, r) {
+      this.context.beginPath();
+      this.circle(x, y, r);
+      this.fill();
+    },
+
     crop: function(x, y, w, h) {
-      this.context.drawImage(this.canvas, x, y, w, h, 0, 0, w, h);
+
+      var canvas = $.createCanvas(w, h);
+      var context = canvas.getContext("2d");
+
+      context.drawImage(this.canvas, x, y, w, h, 0, 0, w, h);
       this.canvas.width = w;
       this.canvas.height = h;
+      this.clear();
+      this.context.drawImage(canvas, 0, 0);
+
       return this;
     },
 
@@ -549,9 +564,112 @@
     },
 
     resize: function(width, height) {
-      var $resized = $(width, height).drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, width, height);
+      var w = width,
+        h = height;
+      if(height === null) {
+        if(this.canvas.width > width) {
+          h = this.canvas.height * (width / this.canvas.width) | 0;
+          w = width;
+        } else {
+          w = this.canvas.width;
+          h = this.canvas.height;
+        }
+      } else if(width === null) {
+        if(this.canvas.width > width) {
+          w = this.canvas.width * (height / this.canvas.height) | 0;
+          h = height;
+        } else {
+          w = this.canvas.width;
+          h = this.canvas.height;
+        }
+      }
+
+      var $resized = $(w, h).drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, w, h);
       this.canvas = $resized.canvas;
       this.context = $resized.context;
+
+      return this;
+    },
+
+    trim: function(color) {
+      var transparent;
+
+      if(color) {
+        color = $.color(color).toArray();
+        transparent = !color[3];
+      } else transparent = true;
+
+      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var sourcePixels = sourceData.data;
+
+      var bound = [this.canvas.width, this.canvas.height, 0, 0];
+
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if(transparent) {
+          if(!sourcePixels[i + 3]) continue;
+        } else if(sourcePixels[i + 0] === color[0] && sourcePixels[i + 1] === color[1] && sourcePixels[i + 2] === color[2]) continue;
+        var x = (i / 4 | 0) % this.canvas.width | 0;
+        var y = (i / 4 | 0) / this.canvas.width | 0;
+
+        if(x < bound[0]) bound[0] = x;
+        if(x > bound[2]) bound[2] = x;
+
+        if(y < bound[1]) bound[1] = y;
+        if(y > bound[3]) bound[3] = y;
+      }
+
+      this.crop(bound[0], bound[1], bound[2] - bound[0], bound[3] - bound[1]);
+
+      return this;
+    },
+
+    resizePixel: function(pixelSize) {
+
+      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var sourcePixels = sourceData.data;
+      var canvas = document.createElement("canvas");
+      var context = canvas.context = canvas.getContext("2d");
+
+      canvas.width = this.canvas.width * pixelSize | 0;
+      canvas.height = this.canvas.height * pixelSize | 0;
+
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if(!sourcePixels[i + 3]) continue;
+        context.fillStyle = $.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
+
+        var x = (i / 4) % this.canvas.width;
+        var y = (i / 4) / this.canvas.width | 0;
+
+        context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+      }
+
+      this.context = context;
+      this.canvas = canvas;
+
+      return this;
+
+      /* this very clever method is working only under Chrome */
+
+      var x = 0,
+        y = 0;
+
+      var canvas = document.createElement("canvas");
+      var context = canvas.context = canvas.getContext("2d");
+
+      canvas.width = this.canvas.width * pixelSize | 0;
+      canvas.height = this.canvas.height * pixelSize | 0;
+
+      while(x < this.canvas.width) {
+        y = 0;
+        while(y < this.canvas.height) {
+          context.drawImage(this.canvas, x, y, 1, 1, x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+          y++;
+        }
+        x++;
+      }
+
+      this.canvas = canvas;
+      this.context = context;
 
       return this;
     },
@@ -661,6 +779,23 @@
       return mask;
     },
 
+    grayscaleToAlpha: function() {
+      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var sourcePixels = sourceData.data;
+
+      var mask = [];
+
+      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        sourcePixels[i + 3] = (sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3 | 0;
+
+        sourcePixels[i + 0] = sourcePixels[i + 1] = sourcePixels[i + 2] = 255;
+      }
+
+      this.context.putImageData(sourceData, 0, 0);
+
+      return this;
+    },
+
     applyMask: function(mask) {
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
@@ -743,6 +878,34 @@
       return this;
     },
 
+    demosceneText: function(text, x, y, gradient) {
+
+      var lines = text.split("\n");
+
+      var h = this.font().match(/\d+/g)[0] * 2;
+
+
+      for(var i = 0; i < lines.length; i++) {
+        var oy = y + i * h * 0.6 | 0;
+        var lingrad = this.context.createLinearGradient(0, oy, 0, oy + h * 0.6 | 0);
+
+        for(var j = 0; j < gradient.length; j += 2) {
+          lingrad.addColorStop(gradient[j], gradient[j + 1]);
+        }
+
+
+        var text = lines[i];
+        var width = this.context.measureText(text).width;
+        var grad = $(width, h).clear(lingrad);
+        //var temp = $(width, h).textBaseline("top").font(this.font()).fillStyle("#ffffff").fillText(text, 0, 0).blend(grad, "normal");
+        //this.context.drawImage(temp.canvas, x, y + i * h * 0.6 | 0);
+        this.fillStyle(lingrad).fillText(text, x, oy);
+      }
+      // this.sw.fillStyle("#fff").font("bold 30px arial").textBaseline("top");
+
+      return this;
+    },
+
     setHsl: function() {
 
       if(arguments.length === 1) {
@@ -802,6 +965,36 @@
         pixels[i + 2] = newPixel[2];
       }
 
+
+      this.context.putImageData(data, 0, 0);
+
+      return this;
+    },
+
+    replaceHue: function(src, dst) {
+
+      if(arguments.length === 1) {
+        var args = arguments[0];
+      } else {
+        var args = arguments;
+      }
+
+      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var pixels = data.data;
+      var r, g, b, a, h, s, l, hsl = [],
+        newPixel = [];
+
+      for(var i = 0, len = pixels.length; i < len; i += 4) {
+        hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
+
+        if(Math.abs(hsl[0] - src) < 0.05) h = $.wrapValue(hue, 0, 1); else h = hsl[0];
+
+        newPixel = $.hslToRgb(h, hsl[1], hsl[2]);
+
+        pixels[i + 0] = newPixel[0];
+        pixels[i + 1] = newPixel[1];
+        pixels[i + 2] = newPixel[2];
+      }
 
       this.context.putImageData(data, 0, 0);
 
@@ -904,11 +1097,56 @@
       this.context.putImageData(data, 0, 0);
 
       return this;
+    },
+
+    measureText: function() {
+      return this.context.measureText.apply(this.context, arguments);
+    },
+
+    createRadialGradient: function() {
+      return this.context.createRadialGradient.apply(this.context, arguments);
+    },
+
+    createLinearGradient: function() {
+      return this.context.createRadialGradient.apply(this.context, arguments);
+    },
+
+    gradientText: function(text, x, y, gradient) {
+
+      var lines = text.split("\n");
+
+      var h = this.font().match(/\d+/g)[0] * 2;
 
 
+      for(var i = 0; i < lines.length; i++) {
+        var oy = y + i * h * 0.6 | 0;
+        var lingrad = this.context.createLinearGradient(0, oy, 0, oy + h * 0.6 | 0);
+
+        for(var j = 0; j < gradient.length; j += 2) {
+          lingrad.addColorStop(gradient[j], gradient[j + 1]);
+        }
+
+
+        var text = lines[i];
+        var width = this.context.measureText(text).width;
+        var grad = $(width, h).clear(lingrad);
+        //var temp = $(width, h).textBaseline("top").font(this.font()).fillStyle("#ffffff").fillText(text, 0, 0).blend(grad, "normal");
+        //this.context.drawImage(temp.canvas, x, y + i * h * 0.6 | 0);
+        this.fillStyle(lingrad).fillText(text, x, oy);
+      }
+      // this.sw.fillStyle("#fff").font("bold 30px arial").textBaseline("top");
+      return this;
     },
 
     /* framework */
+
+    framework: function(args) {
+      for(var name in args) {
+        this[name](args[name]);
+      }
+
+      return this;
+    },
 
     onStep: function(callback, interval) {
       var self = this;
@@ -916,8 +1154,8 @@
 
       this.timer = setInterval(function() {
         var delta = Date.now() - lastTick;
-        callback.call(self, delta);
         lastTick = Date.now();
+        callback.call(self, delta, lastTick);
       }, interval);
 
       return this;
@@ -926,9 +1164,13 @@
     onRender: function(callback) {
       var self = this;
 
+      var lastTick = Date.now();
+
       function step() {
+        var delta = Date.now() - lastTick;
+        lastTick = Date.now();
         requestAnimationFrame(step)
-        callback.call(self);
+        callback.call(self, delta, lastTick);
       };
 
       requestAnimationFrame(step);
@@ -936,16 +1178,14 @@
       return this;
     },
 
-
-
     onMouseMove: function(callback) {
       var self = this;
-      this.canvas.addEventListener("mousemove", function(e) {
+      if(!MOBILE) this.canvas.addEventListener("mousemove", function(e) {
         var pos = $.mousePosition(e);
         callback.call(self, pos.x, pos.y);
       });
 
-      this.canvas.addEventListener("touchmove", function(e) {
+      else this.canvas.addEventListener("touchmove", function(e) {
         var pos = $.mousePosition(e);
         callback.call(self, pos.x, pos.y);
       });
@@ -955,30 +1195,33 @@
 
     onMouseDown: function(callback) {
       var self = this;
-      this.canvas.addEventListener("mousedown", function(e) {
-        var pos = $.mousePosition(e);
-        callback.call(self, pos.x, pos.y, e.button);
-      });
+      if(!MOBILE) {
+        this.canvas.addEventListener("mousedown", function(e) {
+          var pos = $.mousePosition(e);
+          callback.call(self, pos.x, pos.y, e.button);
+        });
+      } else {
+        this.canvas.addEventListener("touchstart", function(e) {
 
-      this.canvas.addEventListener("touchstart", function(e) {
-        var pos = $.mousePosition(e);
-        callback.call(self, pos.x, pos.y);
-      });
+          callback.call(self, e.touches[0].pageX, e.touches[0].pageY, 1);
+        });
+      }
 
       return this;
     },
 
     onMouseUp: function(callback) {
       var self = this;
-      this.canvas.addEventListener("mouseup", function(e) {
-        var pos = $.mousePosition(e);
-        callback.call(self, pos.x, pos.y, e.button);
-      });
-
-      this.canvas.addEventListener("touchend", function(e) {
-        var pos = $.mousePosition(e);
-        callback.call(self, pos.x, pos.y);
-      });
+      if(!MOBILE) {
+        this.canvas.addEventListener("mouseup", function(e) {
+          var pos = $.mousePosition(e);
+          callback.call(self, pos.x, pos.y, e.button);
+        });
+      } else {
+        this.canvas.addEventListener("touchend", function(e) {
+          callback.call(self, e.touches[0].pageX, e.touches[0].pageY, 1);
+        });
+      }
 
       return this;
     },
@@ -1052,7 +1295,7 @@
   var methods = ["arc", "arcTo", "beginPath", "bezierCurveTo", "clearRect", "clip", "closePath", "createImageData", "createLinearGradient", "createRadialGradient", "createPattern", "drawFocusRing", "drawImage", "fill", "fillRect", "fillText", "getImageData", "isPointInPath", "lineTo", "measureText", "moveTo", "putImageData", "quadraticCurveTo", "rect", "restore", "rotate", "save", "scale", "setTransform", "stroke", "strokeRect", "strokeText", "transform", "translate"];
   for(var i = 0; i < methods.length; i++) {
     var name = methods[i];
-    $.Wrapper.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
+    if(!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
   };
 
   /* create setters and getters */
@@ -1060,7 +1303,7 @@
   var properties = ["canvas", "fillStyle", "font", "globalAlpha", "globalCompositeOperation", "lineCap", "lineJoin", "lineWidth", "miterLimit", "shadowOffsetX", "shadowOffsetY", "shadowBlur", "shadowColor", "strokeStyle", "textAlign", "textBaseline"];
   for(var i = 0; i < properties.length; i++) {
     var name = properties[i];
-    $.Wrapper.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
+    if(!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
   };
 
   /* color */
@@ -1076,12 +1319,12 @@
         this[0] = rgb[0];
         this[1] = rgb[1];
         this[2] = rgb[2];
-        this[3] = typeof args[1] === "undefined" ? 1 : args[1];
+        this[3] = 255;
       } else {
         this[0] = args[0];
         this[1] = args[1];
         this[2] = args[2];
-        this[3] = typeof args[3] === "undefined" ? 1 : args[3];
+        this[3] = typeof args[3] === "undefined" ? 255 : args[3];
       }
     },
 

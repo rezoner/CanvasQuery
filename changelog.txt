@@ -1,0 +1,16 @@
+0.7
+Rezoner Sikorski, Markus Kothe, Thomas Giles, Dennis Kaselow
+
++ image drop support
++ matchPalette
++ getPalette
++ resizePixel
++ replaceHue
++ grayscaleToAlpha
++ trim
++ crop
++ touch events
++ framework({ })
+
+! fixed blend modes bugs
+! fixed various math bugs
