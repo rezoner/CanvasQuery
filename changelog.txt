@@ -1,3 +1,11 @@
+0.7.1
+Rezoner Sikorski, Markus Kothe, Dennis Kaselow
+
++ swipe event
++ gradient text - with text wrapping
+
+! various fixes
+
 0.7
 Rezoner Sikorski, Markus Kothe, Thomas Giles, Dennis Kaselow
 

@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.7
+  Canvas Query 0.7.1
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -280,7 +280,7 @@
       return below;
     },
 
-    wrapValue: function(value, min, max) {      
+    wrapValue: function(value, min, max) {
       var d = Math.abs(max - min);
       return min + (value - min) % d;
     },
@@ -477,6 +477,10 @@
         totalOffsetY += currentElement.offsetTop;
       }
       while ((currentElement = currentElement.offsetParent));
+      // Set the event to first touch if using touch-input
+      if(event.changedTouches && event.changedTouches[0] !== undefined) {
+        event = event.changedTouches[0];
+      }
       // Use pageX to get the mouse coordinates
       if(event.pageX || event.pageY) {
         mouseX = event.pageX;
@@ -878,12 +882,33 @@
       return this;
     },
 
-    demosceneText: function(text, x, y, gradient) {
+    gradientText: function(text, x, y, maxWidth, gradient) {
 
-      var lines = text.split("\n");
+      var words = text.split(" ");
 
       var h = this.font().match(/\d+/g)[0] * 2;
 
+      var ox = 0;
+      var oy = 0;
+
+      if(maxWidth) {
+        var line = 0;
+        var lines = [""];
+
+        for(var i = 0; i < words.length; i++) {
+          var word = words[i] + " ";
+          var wordWidth = this.context.measureText(word).width;
+
+          if(ox + wordWidth > maxWidth) {
+            lines[++line] = "";
+            ox = 0;
+          }
+
+          lines[line] += word;
+
+          ox += wordWidth;
+        }
+      } else var lines = [text];
 
       for(var i = 0; i < lines.length; i++) {
         var oy = y + i * h * 0.6 | 0;
@@ -893,15 +918,10 @@
           lingrad.addColorStop(gradient[j], gradient[j + 1]);
         }
 
-
         var text = lines[i];
-        var width = this.context.measureText(text).width;
-        var grad = $(width, h).clear(lingrad);
-        //var temp = $(width, h).textBaseline("top").font(this.font()).fillStyle("#ffffff").fillText(text, 0, 0).blend(grad, "normal");
-        //this.context.drawImage(temp.canvas, x, y + i * h * 0.6 | 0);
+
         this.fillStyle(lingrad).fillText(text, x, oy);
       }
-      // this.sw.fillStyle("#fff").font("bold 30px arial").textBaseline("top");
 
       return this;
     },
@@ -973,12 +993,6 @@
 
     replaceHue: function(src, dst) {
 
-      if(arguments.length === 1) {
-        var args = arguments[0];
-      } else {
-        var args = arguments;
-      }
-
       var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var pixels = data.data;
       var r, g, b, a, h, s, l, hsl = [],
@@ -987,7 +1001,8 @@
       for(var i = 0, len = pixels.length; i < len; i += 4) {
         hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
 
-        if(Math.abs(hsl[0] - src) < 0.05) h = $.wrapValue(hue, 0, 1); else h = hsl[0];
+        if(Math.abs(hsl[0] - src) < 0.05) h = $.wrapValue(dst, 0, 1);
+        else h = hsl[0];
 
         newPixel = $.hslToRgb(h, hsl[1], hsl[2]);
 
@@ -1108,7 +1123,7 @@
     },
 
     createLinearGradient: function() {
-      return this.context.createRadialGradient.apply(this.context, arguments);
+      return this.context.createLinearGradient.apply(this.context, arguments);
     },
 
     gradientText: function(text, x, y, gradient) {
@@ -1186,6 +1201,7 @@
       });
 
       else this.canvas.addEventListener("touchmove", function(e) {
+        e.preventDefault();
         var pos = $.mousePosition(e);
         callback.call(self, pos.x, pos.y);
       });
@@ -1202,8 +1218,8 @@
         });
       } else {
         this.canvas.addEventListener("touchstart", function(e) {
-
-          callback.call(self, e.touches[0].pageX, e.touches[0].pageY, 1);
+          var pos = $.mousePosition(e);
+          callback.call(self, pos.x, pos.y, e.button);
         });
       }
 
@@ -1219,9 +1235,85 @@
         });
       } else {
         this.canvas.addEventListener("touchend", function(e) {
-          callback.call(self, e.touches[0].pageX, e.touches[0].pageY, 1);
+          var pos = $.mousePosition(e);
+          callback.call(self, pos.x, pos.y, e.button);
         });
       }
+
+      return this;
+    },
+
+
+    onSwipe: function(callback, threshold, timeout) {
+      var self = this;
+
+      var swipeThr = threshold || 35;
+      var swipeTim = timeout || 350;
+
+      var swipeSP = 0;
+      var swipeST = 0;
+      var swipeEP = 0;
+      var swipeET = 0;
+
+      function swipeStart(e) {
+        e.preventDefault();
+        swipeSP = $.mousePosition(e);
+        swipeST = Date.now();
+      }
+
+      function swipeUpdate(e) {
+        e.preventDefault();
+        swipeEP = $.mousePosition(e);
+        swipeET = Date.now();
+      }
+
+      function swipeEnd(e) {
+        e.preventDefault();
+
+        var xDif = (swipeSP.x - swipeEP.x);
+        var yDif = (swipeSP.y - swipeEP.y);
+        var x = (xDif * xDif);
+        var y = (yDif * yDif);
+        var swipeDist = Math.sqrt(x + y);
+        var swipeTime = (swipeET - swipeST);
+        var swipeDir = undefined;
+
+        if(swipeDist > swipeThr && swipeTime < swipeTim) {
+          if(Math.abs(xDif) > Math.abs(yDif)) {
+            if(xDif > 0) {
+              swipeDir = "left";
+            } else {
+              swipeDir = "right";
+            }
+          } else {
+            if(yDif > 0) {
+              swipeDir = "up";
+            } else {
+              swipeDir = "down";
+            }
+          }
+          callback.call(self, swipeDir);
+        }
+      }
+
+      this.canvas.addEventListener("touchstart", function(e) {
+        swipeStart(e);
+      });
+      this.canvas.addEventListener("touchmove", function(e) {
+        swipeUpdate(e);
+      });
+      this.canvas.addEventListener("touchend", function(e) {
+        swipeEnd(e);
+      });
+      this.canvas.addEventListener("mousedown", function(e) {
+        swipeStart(e);
+      });
+      this.canvas.addEventListener("mousemove", function(e) {
+        swipeUpdate(e);
+      });
+      this.canvas.addEventListener("mouseup", function(e) {
+        swipeEnd(e);
+      });
 
       return this;
     },
