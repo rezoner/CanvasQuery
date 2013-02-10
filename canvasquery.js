@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.7.1
+  Canvas Query 0.8.0
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -26,10 +26,10 @@
           // canvas.height = window.innerHeight;
         });
       } else if(typeof selector === "string") {
-        var canvas = $.createCanvas(document.querySelector(selector)[0]);
+        var canvas = document.querySelector(selector);
       } else if(typeof selector === "number") {
         var canvas = $.createCanvas(arguments[0], arguments[1]);
-      } else if(selector instanceof Image) {
+      } else if(selector instanceof Image || selector instanceof HTMLImageElement) {
         var canvas = $.createCanvas(selector);
       } else if(selector instanceof $.Wrapper) {
         return selector;
@@ -165,7 +165,7 @@
       },
 
       divide: function(a, b) {
-        return $.limitValue(256 * a / (b + 1), 0, 255);
+        return Math.min(256 * a / (b + 1), 255);
       },
 
       screen: function(a, b) {
@@ -442,7 +442,7 @@
     createCanvas: function(width, height) {
       var result = document.createElement("canvas");
 
-      if(arguments[0] instanceof Image) {
+      if(arguments[0] instanceof Image || arguments[0] instanceof HTMLImageElement) {
         var image = arguments[0];
         result.width = image.width;
         result.height = image.height;
@@ -543,12 +543,6 @@
       return this;
     },
 
-    fillCircle: function(x, y, r) {
-      this.context.beginPath();
-      this.circle(x, y, r);
-      this.fill();
-    },
-
     crop: function(x, y, w, h) {
 
       var canvas = $.createCanvas(w, h);
@@ -622,7 +616,9 @@
         if(y > bound[3]) bound[3] = y;
       }
 
-      this.crop(bound[0], bound[1], bound[2] - bound[0], bound[3] - bound[1]);
+      if(bound[2] === 0 || bound[3] === 0) {
+
+      } else this.crop(bound[0], bound[1], bound[2] - bound[0] + 1, bound[3] - bound[1] + 1);
 
       return this;
     },
@@ -647,8 +643,9 @@
         context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
       }
 
-      this.context = context;
-      this.canvas = canvas;
+      this.canvas.width = canvas.width;
+      this.canvas.height = canvas.height;
+      this.clear().drawImage(canvas, 0, 0);
 
       return this;
 
@@ -1016,6 +1013,163 @@
       return this;
     },
 
+    invert: function(src, dst) {
+
+      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var pixels = data.data;
+      var r, g, b, a, h, s, l, hsl = [],
+        newPixel = [];
+
+      for(var i = 0, len = pixels.length; i < len; i += 4) {
+        pixels[i + 0] = 255 - pixels[i + 0];
+        pixels[i + 1] = 255 - pixels[i + 1];
+        pixels[i + 2] = 255 - pixels[i + 2];
+      }
+
+      this.context.putImageData(data, 0, 0);
+
+      return this;
+    },
+
+    roundRect: function(x, y, width, height, radius) {
+
+      this.beginPath();
+      this.moveTo(x + radius, y);
+      this.lineTo(x + width - radius, y);
+      this.quadraticCurveTo(x + width, y, x + width, y + radius);
+      this.lineTo(x + width, y + height - radius);
+      this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      this.lineTo(x + radius, y + height);
+      this.quadraticCurveTo(x, y + height, x, y + height - radius);
+      this.lineTo(x, y + radius);
+      this.quadraticCurveTo(x, y, x + radius, y);
+      this.closePath();
+
+      return this;
+    },
+
+    wrappedText: function(text, x, y, maxWidth) {
+
+      var words = text.split(" ");
+
+      var h = this.font().match(/\d+/g)[0] * 2;
+
+      var ox = 0;
+      var oy = 0;
+
+      if(maxWidth) {
+        var line = 0;
+        var lines = [""];
+
+        for(var i = 0; i < words.length; i++) {
+          var word = words[i] + " ";
+          var wordWidth = this.context.measureText(word).width;
+
+          if(ox + wordWidth > maxWidth) {
+            lines[++line] = "";
+            ox = 0;
+          }
+
+          lines[line] += word;
+
+          ox += wordWidth;
+        }
+      } else {
+        var lines = [text];
+      }
+
+      for(var i = 0; i < lines.length; i++) {
+        var oy = y + i * h * 0.6 | 0;
+
+        var text = lines[i];
+
+        this.fillText(text, x, oy);
+      }
+
+      return this;
+    },
+
+    textBoundaries: function(text, maxWidth) {
+      var words = text.split(" ");
+
+      var h = this.font().match(/\d+/g)[0] * 2;
+
+      var ox = 0;
+      var oy = 0;
+
+      if(maxWidth) {
+        var line = 0;
+        var lines = [""];
+
+        for(var i = 0; i < words.length; i++) {
+          var word = words[i] + " ";
+          var wordWidth = this.context.measureText(word).width;
+
+          if(ox + wordWidth > maxWidth) {
+            lines[++line] = "";
+            ox = 0;
+          }
+
+          lines[line] += word;
+
+          ox += wordWidth;
+        }
+      } else {
+        var lines = [text];
+        maxWidth = this.measureText(text).width;
+      }
+
+      return {
+        height: lines.length * h * 0.6 | 0,
+        width: maxWidth
+      }
+    },
+
+    paperBag: function(x, y, width, height, blowX, blowY) {
+      var lx, ly;
+      this.beginPath();
+      this.moveTo(x, y);
+      this.quadraticCurveTo(x + width / 2 | 0, y + height * blowY | 0, x + width, y);
+      this.quadraticCurveTo(x + width - width * blowX | 0, y + height / 2 | 0, x + width, y + height);
+      this.quadraticCurveTo(x + width / 2 | 0, y + height - height * blowY | 0, x, y + height);
+      this.quadraticCurveTo(x + width * blowX | 0, y + height / 2 | 0, x, y);
+    },
+
+    borderImage: function(image, x, y, w, h, t, r, b, l, fill) {
+
+      /* top */
+      this.drawImage(image, l, 0, image.width - l - r, t, x + l, y, w - l - r, t);
+
+      /* bottom */
+      this.drawImage(image, l, image.height - b, image.width - l - r, b, x + l, y + h - b, w - l - r, b);
+
+      /* left */
+      this.drawImage(image, 0, t, l, image.height - b - t, x, y + t, l, h - b - t);
+
+      /* right */
+      this.drawImage(image, image.width - r, t, r, image.height - b - t, x + w - r, y + t, r, h - b - t);
+
+      /* top-left */
+      this.drawImage(image, 0, 0, l, t, x, y, l, t);
+
+      /* top-right */
+      this.drawImage(image, image.width - r, 0, r, t, x + w - r, y, r, t);
+
+      /* bottom-right */
+      this.drawImage(image, image.width - r, image.height - b, r, b, x + w - r, y + h - b, r, b);
+
+      /* bottom-left */
+      this.drawImage(image, 0, image.height - b, l, b, x, y + h - b, l, b);
+
+      if(fill) {
+        if(typeof fill === "string") {
+          this.fillStyle(fill).fillRect(x + l, y + t, w - l - r, h - t - b);
+        } else {
+          this.drawImage(image, l, t, image.width - r - l, image.height - b - t, x + l, y + t, w - l - r, h - t - b);
+        }
+      }
+    },
+
     /* www.html5rocks.com/en/tutorials/canvas/imagefilters/ */
 
     convolve: function(matrix, mix, divide) {
@@ -1126,45 +1280,24 @@
       return this.context.createLinearGradient.apply(this.context, arguments);
     },
 
-    gradientText: function(text, x, y, gradient) {
-
-      var lines = text.split("\n");
-
-      var h = this.font().match(/\d+/g)[0] * 2;
-
-
-      for(var i = 0; i < lines.length; i++) {
-        var oy = y + i * h * 0.6 | 0;
-        var lingrad = this.context.createLinearGradient(0, oy, 0, oy + h * 0.6 | 0);
-
-        for(var j = 0; j < gradient.length; j += 2) {
-          lingrad.addColorStop(gradient[j], gradient[j + 1]);
-        }
-
-
-        var text = lines[i];
-        var width = this.context.measureText(text).width;
-        var grad = $(width, h).clear(lingrad);
-        //var temp = $(width, h).textBaseline("top").font(this.font()).fillStyle("#ffffff").fillText(text, 0, 0).blend(grad, "normal");
-        //this.context.drawImage(temp.canvas, x, y + i * h * 0.6 | 0);
-        this.fillStyle(lingrad).fillText(text, x, oy);
-      }
-      // this.sw.fillStyle("#fff").font("bold 30px arial").textBaseline("top");
-      return this;
-    },
-
     /* framework */
 
-    framework: function(args) {
-      for(var name in args) {
-        this[name](args[name]);
+    framework: function(args, context) {
+      if(context) {
+        this.tempContext = context === true ? args : context;
       }
+
+      for(var name in args) {
+        if(this[name]) this[name](args[name], undefined, undefined);
+      }
+
+      this.tempContext = null;
 
       return this;
     },
 
     onStep: function(callback, interval) {
-      var self = this;
+      var self = this.tempContext || this;
       var lastTick = Date.now();
 
       this.timer = setInterval(function() {
@@ -1177,7 +1310,7 @@
     },
 
     onRender: function(callback) {
-      var self = this;
+      var self = this.tempContext || this;
 
       var lastTick = Date.now();
 
@@ -1194,7 +1327,8 @@
     },
 
     onMouseMove: function(callback) {
-      var self = this;
+      var self = this.tempContext || this;
+
       if(!MOBILE) this.canvas.addEventListener("mousemove", function(e) {
         var pos = $.mousePosition(e);
         callback.call(self, pos.x, pos.y);
@@ -1210,7 +1344,8 @@
     },
 
     onMouseDown: function(callback) {
-      var self = this;
+      var self = this.tempContext || this;
+
       if(!MOBILE) {
         this.canvas.addEventListener("mousedown", function(e) {
           var pos = $.mousePosition(e);
@@ -1227,7 +1362,8 @@
     },
 
     onMouseUp: function(callback) {
-      var self = this;
+      var self = this.tempContext || this;
+
       if(!MOBILE) {
         this.canvas.addEventListener("mouseup", function(e) {
           var pos = $.mousePosition(e);
@@ -1245,7 +1381,7 @@
 
 
     onSwipe: function(callback, threshold, timeout) {
-      var self = this;
+      var self = this.tempContext || this;
 
       var swipeThr = threshold || 35;
       var swipeTim = timeout || 350;
