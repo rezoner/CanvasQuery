@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.8.0
+  Canvas Query 0.8.1
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -751,7 +751,7 @@
       return this;
     },
 
-    colorToMask: function(color) {
+    colorToMask: function(color, inverted) {
       color = $.color(color).toArray();
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
@@ -759,8 +759,8 @@
       var mask = [];
 
       for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(sourcePixels[i + 0] == color[0] && sourcePixels[i + 1] == color[1] && sourcePixels[i + 2] == color[2]) mask.push(false);
-        else mask.push(true);
+        if(sourcePixels[i + 0] == color[0] && sourcePixels[i + 1] == color[1] && sourcePixels[i + 2] == color[2]) mask.push(inverted || false);
+        else mask.push(!inverted);
       }
 
       return mask;
@@ -1048,7 +1048,7 @@
       return this;
     },
 
-    wrappedText: function(text, x, y, maxWidth) {
+    wrappedText: function(text, x, y, maxWidth, newlineCallback) {
 
       var words = text.split(" ");
 
@@ -1065,9 +1065,9 @@
           var word = words[i] + " ";
           var wordWidth = this.context.measureText(word).width;
 
-          if(ox + wordWidth > maxWidth) {
+          if(ox + wordWidth > maxWidth) {            
             lines[++line] = "";
-            ox = 0;
+            ox = 0;            
           }
 
           lines[line] += word;
@@ -1082,6 +1082,8 @@
         var oy = y + i * h * 0.6 | 0;
 
         var text = lines[i];
+
+        if(newlineCallback) newlineCallback.call(this, x, y + oy);
 
         this.fillText(text, x, oy);
       }
@@ -1279,6 +1281,10 @@
     createLinearGradient: function() {
       return this.context.createLinearGradient.apply(this.context, arguments);
     },
+
+    getImageData: function() {
+      return this.context.getImageData.apply(this.context, arguments);
+    },    
 
     /* framework */
 
