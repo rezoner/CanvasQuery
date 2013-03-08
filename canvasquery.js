@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.8.1
+  Canvas Query 0.9 work in progress
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -589,7 +589,8 @@
       return this;
     },
 
-    trim: function(color) {
+
+    trim: function(color, changes) {
       var transparent;
 
       if(color) {
@@ -618,7 +619,16 @@
 
       if(bound[2] === 0 || bound[3] === 0) {
 
-      } else this.crop(bound[0], bound[1], bound[2] - bound[0] + 1, bound[3] - bound[1] + 1);
+      } else {
+        if(changes) {
+          changes.left = bound[0];
+          changes.top = bound[1];
+          changes.width = bound[2] - bound[0];
+          changes.height = bound[3] - bound[1];
+        }
+        
+        this.crop(bound[0], bound[1], bound[2] - bound[0] + 1, bound[3] - bound[1] + 1);
+      }
 
       return this;
     },

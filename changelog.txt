@@ -1,9 +1,28 @@
+0.9 
+
+save trim coordinates
+inverted in colorToMask
+bug with getImageData
+
+0.8.1
+
+! getImageData fixed
+
+0.8
+Rezoner
+
++ textBoundaries
++ gradientText
++ wrappedText
++ roundRect
++ paperBag
++ borderImage
++ easier integration of framework mode
+
 0.7.1
-Rezoner Sikorski, Markus Kothe, Dennis Kaselow
+Markus Kothe, Dennis Kaselow
 
 + swipe event
-+ gradient text - with text wrapping
-
 ! various fixes
 
 0.7
