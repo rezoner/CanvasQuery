@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.9 work in progress
+  Canvas Query 0.8.3 work in progress
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -1559,16 +1559,42 @@
   $.Color.prototype = {
     parse: function(args) {
       if(typeof args[0] === "string") {
-        var rgb = $.hexToRgb(args[0]);
-        this[0] = rgb[0];
-        this[1] = rgb[1];
-        this[2] = rgb[2];
-        this[3] = 255;
+        var match = null;
+
+        if(args[0][0] === "#") {
+          var rgb = $.hexToRgb(args[0]);
+          this[0] = rgb[0];
+          this[1] = rgb[1];
+          this[2] = rgb[2];
+          this[3] = 1.0;
+        } else if (match = args[0].match(/rgb\((.*),(.*),(.*)\)/)) {
+          this[0] = match[1] | 0;
+          this[1] = match[2] | 0;
+          this[2] = match[3] | 0;
+          this[3] = 1.0;
+        } else if (match = args[0].match(/rgba\((.*),(.*),(.*)\)/)) {
+          this[0] = match[1] | 0;
+          this[1] = match[2] | 0;
+          this[2] = match[3] | 0;
+          this[3] = match[4] | 0;
+        } else if (match = args[0].match(/hsl\((.*),(.*),(.*)\)/)) {
+          var color = $.hslToRgb(match[1], match[2], match[3]);
+          this[0] = color[0];
+          this[1] = color[1];
+          this[2] = color[2];
+          this[3] = 1.0;
+        } else if (match = args[0].match(/hsv\((.*),(.*),(.*)\)/)) {
+          var color = $.hsTvoRgb(match[1], match[2], match[3]);
+          this[0] = color[0];
+          this[1] = color[1];
+          this[2] = color[2];
+          this[3] = 1.0;
+        }
       } else {
         this[0] = args[0];
         this[1] = args[1];
         this[2] = args[2];
-        this[3] = typeof args[3] === "undefined" ? 255 : args[3];
+        this[3] = typeof args[3] === "undefined" ? 1.0 : args[3];
       }
     },
 
@@ -1581,7 +1607,7 @@
     },
 
     toRgba: function() {
-      return "rgb(" + this[0] + ", " + this[1] + ", " + this[2] + ", " + this[3] + ")";
+      return "rgba(" + this[0] + ", " + this[1] + ", " + this[2] + ", " + this[3] + ")";
     },
 
     toHex: function() {
