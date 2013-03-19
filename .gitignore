@@ -1,0 +1,53 @@
+# gitignore - Specifies intentionally untracked files to ignore
+# http://git-scm.com/docs/gitignore
+# ==============================================================================
+
+# Project-specific ignores
+# ---------------------------------
+
+node_modules
+
+# Numerous always-ignore extensions
+# ---------------------------------
+
+*.diff
+*.err
+*.orig
+*.log
+*.rej
+*.swo
+*.swp
+*.vi
+*~
+*.sass-cache
+
+# OS or Editor folders
+# --------------------
+
+.DS_Store
+._*
+Thumbs.db
+.cache
+.project
+.settings
+.tmproj
+nbproject
+*.sublime-project
+*.sublime-workspace
+_notes
+dwsync.xml
+*.komodoproject
+.komodotools
+*.esproj
+*.espressostorage
+*.rbc
+
+# Folders to ignore
+# -----------------
+
+.hg
+.svn
+.CVS
+intermediate
+publish
+.idea
