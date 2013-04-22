@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 0.8.3 work in progress
+  Canvas Query 0.8.4
   http://canvasquery.org
   (c) 2012-2013 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -11,51 +11,61 @@
 
 
   window.requestAnimationFrame = (function() {
-    return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
-    function(callback) {
+    return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback) {
       window.setTimeout(callback, 1000 / 60);
     };
   })();
 
 
   var $ = function(selector) {
-      if(arguments.length === 0) {
-        var canvas = $.createCanvas(window.innerWidth, window.innerHeight);
-        window.addEventListener("resize", function() {
-          // canvas.width = window.innerWidth;
-          // canvas.height = window.innerHeight;
-        });
-      } else if(typeof selector === "string") {
-        var canvas = document.querySelector(selector);
-      } else if(typeof selector === "number") {
-        var canvas = $.createCanvas(arguments[0], arguments[1]);
-      } else if(selector instanceof Image || selector instanceof HTMLImageElement) {
-        var canvas = $.createCanvas(selector);
-      } else if(selector instanceof $.Wrapper) {
-        return selector;
-      } else {
-        var canvas = selector;
-      }
-
-      return new $.Wrapper(canvas);
+    if (arguments.length === 0) {
+      var canvas = $.createCanvas(window.innerWidth, window.innerHeight);
+      window.addEventListener("resize", function() {
+        // canvas.width = window.innerWidth;
+        // canvas.height = window.innerHeight;
+      });
+    } else if (typeof selector === "string") {
+      var canvas = document.querySelector(selector);
+    } else if (typeof selector === "number") {
+      var canvas = $.createCanvas(arguments[0], arguments[1]);
+    } else if (selector instanceof Image || selector instanceof HTMLImageElement) {
+      var canvas = $.createCanvas(selector);
+    } else if (selector instanceof $.Wrapper) {
+      return selector;
+    } else {
+      var canvas = selector;
     }
 
+    return new $.Wrapper(canvas);
+  }
+
   $.extend = function() {
-    for(var i = 1; i < arguments.length; i++) {
-      for(var j in arguments[i]) {
+    for (var i = 1; i < arguments.length; i++) {
+      for (var j in arguments[i]) {
         arguments[0][j] = arguments[i][j];
       }
     }
 
     return arguments[0];
-  }
+  };
 
   $.augment = function() {
-    for(var i = 1; i < arguments.length; i++) {
+    for (var i = 1; i < arguments.length; i++) {
       _.extend(arguments[0], arguments[i]);
       arguments[i](arguments[0]);
     }
-  }
+  };
+
+  $.distance = function(x1, y1, x2, y2) {
+    if (arguments.length > 2) {
+      var dx = x1 - x2;
+      var dy = y1 - y2;
+
+      return Math.sqrt(dx * dx + dy * dy);
+    } else {
+      return Math.abs(x1 - y1);
+    }
+  };
 
   $.extend($, {
 
@@ -111,9 +121,9 @@
       var lastArgument = arguments[arguments.length - 1];
       var isLastArgumentFunction = typeof lastArgument === "function";
 
-      for(var i = 0, len = array.length; i < len; i++) {
-        if(array[i] === null || (property && array[i][property])) {
-          if(isLastArgumentFunction) {
+      for (var i = 0, len = array.length; i < len; i++) {
+        if (array[i] === null || (property && array[i][property])) {
+          if (isLastArgumentFunction) {
             lastArgument(array[i]);
           }
           array.splice(i--, 1);
@@ -134,7 +144,7 @@
         b /= 255;
         var result = 0;
 
-        if(a < 0.5) result = 2 * a * b;
+        if (a < 0.5) result = 2 * a * b;
         else result = 1 - 2 * (1 - a) * (1 - b);
 
         return Math.min(255, Math.max(0, result * 255 | 0));
@@ -211,7 +221,7 @@
         var aHSV = $.rgbToHsv(a);
         var bHSV = $.rgbToHsv(b);
 
-        if(!bHSV[1]) return $.hsvToRgb(aHSV[0], aHSV[1], aHSV[2]);
+        if (!bHSV[1]) return $.hsvToRgb(aHSV[0], aHSV[1], aHSV[2]);
         else return $.hsvToRgb(bHSV[0], aHSV[1], aHSV[2]);
       },
 
@@ -231,7 +241,7 @@
     },
 
     blend: function(below, above, mode, mix) {
-      if(typeof mix === "undefined") mix = 1;
+      if (typeof mix === "undefined") mix = 1;
 
       var below = $(below);
       var above = $(above);
@@ -250,8 +260,8 @@
 
       var blendingFunction = $.blendFunctions[mode];
 
-      if($.specialBlendFunctions.indexOf(mode) !== -1) {
-        for(var i = 0, len = belowPixels.length; i < len; i += 4) {
+      if ($.specialBlendFunctions.indexOf(mode) !== -1) {
+        for (var i = 0, len = belowPixels.length; i < len; i += 4) {
           var rgb = blendingFunction([belowPixels[i + 0], belowPixels[i + 1], belowPixels[i + 2]], [abovePixels[i + 0], abovePixels[i + 1], abovePixels[i + 2]]);
 
           pixels[i + 0] = belowPixels[i + 0] + (rgb[0] - belowPixels[i + 0]) * mix;
@@ -262,7 +272,7 @@
         }
       } else {
 
-        for(var i = 0, len = belowPixels.length; i < len; i += 4) {
+        for (var i = 0, len = belowPixels.length; i < len; i += 4) {
           var r = blendingFunction(belowPixels[i + 0], abovePixels[i + 0]);
           var g = blendingFunction(belowPixels[i + 1], abovePixels[i + 1]);
           var b = blendingFunction(belowPixels[i + 2], abovePixels[i + 2]);
@@ -294,7 +304,8 @@
     },
 
     hexToRgb: function(hex) {
-      return ['0x' + hex[1] + hex[2] | 0, '0x' + hex[3] + hex[4] | 0, '0x' + hex[5] + hex[6] | 0];
+      if (hex.length === 7) return ['0x' + hex[1] + hex[2] | 0, '0x' + hex[3] + hex[4] | 0, '0x' + hex[5] + hex[6] | 0];
+      else return ['0x' + hex[1] | 0, '0x' + hex[2], '0x' + hex[3] | 0];
     },
 
     rgbToHex: function(r, g, b) {
@@ -305,7 +316,7 @@
 
     rgbToHsl: function(r, g, b) {
 
-      if(r instanceof Array) {
+      if (r instanceof Array) {
         b = r[2];
         g = r[1];
         r = r[0];
@@ -316,21 +327,21 @@
         min = Math.min(r, g, b);
       var h, s, l = (max + min) / 2;
 
-      if(max == min) {
+      if (max == min) {
         h = s = 0; // achromatic
       } else {
         var d = max - min;
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch(max) {
-        case r:
-          h = (g - b) / d + (g < b ? 6 : 0);
-          break;
-        case g:
-          h = (b - r) / d + 2;
-          break;
-        case b:
-          h = (r - g) / d + 4;
-          break;
+        switch (max) {
+          case r:
+            h = (g - b) / d + (g < b ? 6 : 0);
+            break;
+          case g:
+            h = (b - r) / d + 2;
+            break;
+          case b:
+            h = (r - g) / d + 4;
+            break;
         }
         h /= 6;
       }
@@ -343,15 +354,15 @@
     hslToRgb: function(h, s, l) {
       var r, g, b;
 
-      if(s == 0) {
+      if (s == 0) {
         r = g = b = l; // achromatic
       } else {
         function hue2rgb(p, q, t) {
-          if(t < 0) t += 1;
-          if(t > 1) t -= 1;
-          if(t < 1 / 6) return p + (q - p) * 6 * t;
-          if(t < 1 / 2) return q;
-          if(t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
           return p;
         }
 
@@ -366,7 +377,7 @@
     },
 
     rgbToHsv: function(r, g, b) {
-      if(r instanceof Array) {
+      if (r instanceof Array) {
         b = r[2];
         g = r[1];
         r = r[0];
@@ -380,19 +391,19 @@
       var d = max - min;
       s = max == 0 ? 0 : d / max;
 
-      if(max == min) {
+      if (max == min) {
         h = 0; // achromatic
       } else {
-        switch(max) {
-        case r:
-          h = (g - b) / d + (g < b ? 6 : 0);
-          break;
-        case g:
-          h = (b - r) / d + 2;
-          break;
-        case b:
-          h = (r - g) / d + 4;
-          break;
+        switch (max) {
+          case r:
+            h = (g - b) / d + (g < b ? 6 : 0);
+            break;
+          case g:
+            h = (b - r) / d + 2;
+            break;
+          case b:
+            h = (r - g) / d + 4;
+            break;
         }
         h /= 6;
       }
@@ -409,40 +420,40 @@
       var q = v * (1 - f * s);
       var t = v * (1 - (1 - f) * s);
 
-      switch(i % 6) {
-      case 0:
-        r = v, g = t, b = p;
-        break;
-      case 1:
-        r = q, g = v, b = p;
-        break;
-      case 2:
-        r = p, g = v, b = t;
-        break;
-      case 3:
-        r = p, g = q, b = v;
-        break;
-      case 4:
-        r = t, g = p, b = v;
-        break;
-      case 5:
-        r = v, g = p, b = q;
-        break;
+      switch (i % 6) {
+        case 0:
+          r = v, g = t, b = p;
+          break;
+        case 1:
+          r = q, g = v, b = p;
+          break;
+        case 2:
+          r = p, g = v, b = t;
+          break;
+        case 3:
+          r = p, g = q, b = v;
+          break;
+        case 4:
+          r = t, g = p, b = v;
+          break;
+        case 5:
+          r = v, g = p, b = q;
+          break;
       }
 
-      return [r * 255, g * 255, b * 255];
+      return [r * 255 | 0, g * 255 | 0, b * 255 | 0];
     },
 
     color: function() {
       var result = new $.Color();
-      result.parse(arguments);
+      result.parse(arguments[0], arguments[1]);
       return result;
     },
 
     createCanvas: function(width, height) {
       var result = document.createElement("canvas");
 
-      if(arguments[0] instanceof Image || arguments[0] instanceof HTMLImageElement) {
+      if (arguments[0] instanceof Image || arguments[0] instanceof HTMLImageElement) {
         var image = arguments[0];
         result.width = image.width;
         result.height = image.height;
@@ -478,16 +489,16 @@
       }
       while ((currentElement = currentElement.offsetParent));
       // Set the event to first touch if using touch-input
-      if(event.changedTouches && event.changedTouches[0] !== undefined) {
+      if (event.changedTouches && event.changedTouches[0] !== undefined) {
         event = event.changedTouches[0];
       }
       // Use pageX to get the mouse coordinates
-      if(event.pageX || event.pageY) {
+      if (event.pageX || event.pageY) {
         mouseX = event.pageX;
         mouseY = event.pageY;
       }
       // IE8 and below doesn't support event.pageX
-      else if(event.clientX || event.clientY) {
+      else if (event.clientX || event.clientY) {
         mouseX = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
         mouseY = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
       }
@@ -509,7 +520,7 @@
 
   $.Wrapper.prototype = {
     appendTo: function(selector) {
-      if(typeof selector === "object") {
+      if (typeof selector === "object") {
         var element = selector;
       } else {
         var element = document.querySelector(selector);
@@ -527,7 +538,7 @@
     },
 
     blend: function(what, mode, mix) {
-      if(typeof what === "string") {
+      if (typeof what === "string") {
         var color = what;
         what = $($.createCanvas(this.canvas.width, this.canvas.height));
         what.fillStyle(color).fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -564,21 +575,28 @@
     resize: function(width, height) {
       var w = width,
         h = height;
-      if(height === null) {
-        if(this.canvas.width > width) {
-          h = this.canvas.height * (width / this.canvas.width) | 0;
-          w = width;
-        } else {
-          w = this.canvas.width;
-          h = this.canvas.height;
-        }
-      } else if(width === null) {
-        if(this.canvas.width > width) {
-          w = this.canvas.width * (height / this.canvas.height) | 0;
-          h = height;
-        } else {
-          w = this.canvas.width;
-          h = this.canvas.height;
+
+      if (arguments.length === 1) {
+        w = arguments[0] * this.canvas.width | 0;
+        h = arguments[0] * this.canvas.height | 0;
+      } else {
+
+        if (height === null) {
+          if (this.canvas.width > width) {
+            h = this.canvas.height * (width / this.canvas.width) | 0;
+            w = width;
+          } else {
+            w = this.canvas.width;
+            h = this.canvas.height;
+          }
+        } else if (width === null) {
+          if (this.canvas.width > width) {
+            w = this.canvas.width * (height / this.canvas.height) | 0;
+            h = height;
+          } else {
+            w = this.canvas.width;
+            h = this.canvas.height;
+          }
         }
       }
 
@@ -593,7 +611,7 @@
     trim: function(color, changes) {
       var transparent;
 
-      if(color) {
+      if (color) {
         color = $.color(color).toArray();
         transparent = !color[3];
       } else transparent = true;
@@ -603,30 +621,30 @@
 
       var bound = [this.canvas.width, this.canvas.height, 0, 0];
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(transparent) {
-          if(!sourcePixels[i + 3]) continue;
-        } else if(sourcePixels[i + 0] === color[0] && sourcePixels[i + 1] === color[1] && sourcePixels[i + 2] === color[2]) continue;
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if (transparent) {
+          if (!sourcePixels[i + 3]) continue;
+        } else if (sourcePixels[i + 0] === color[0] && sourcePixels[i + 1] === color[1] && sourcePixels[i + 2] === color[2]) continue;
         var x = (i / 4 | 0) % this.canvas.width | 0;
         var y = (i / 4 | 0) / this.canvas.width | 0;
 
-        if(x < bound[0]) bound[0] = x;
-        if(x > bound[2]) bound[2] = x;
+        if (x < bound[0]) bound[0] = x;
+        if (x > bound[2]) bound[2] = x;
 
-        if(y < bound[1]) bound[1] = y;
-        if(y > bound[3]) bound[3] = y;
+        if (y < bound[1]) bound[1] = y;
+        if (y > bound[3]) bound[3] = y;
       }
 
-      if(bound[2] === 0 || bound[3] === 0) {
+      if (bound[2] === 0 || bound[3] === 0) {
 
       } else {
-        if(changes) {
+        if (changes) {
           changes.left = bound[0];
           changes.top = bound[1];
           changes.width = bound[2] - bound[0];
           changes.height = bound[3] - bound[1];
         }
-        
+
         this.crop(bound[0], bound[1], bound[2] - bound[0] + 1, bound[3] - bound[1] + 1);
       }
 
@@ -643,8 +661,8 @@
       canvas.width = this.canvas.width * pixelSize | 0;
       canvas.height = this.canvas.height * pixelSize | 0;
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(!sourcePixels[i + 3]) continue;
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if (!sourcePixels[i + 3]) continue;
         context.fillStyle = $.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
 
         var x = (i / 4) % this.canvas.width;
@@ -670,9 +688,9 @@
       canvas.width = this.canvas.width * pixelSize | 0;
       canvas.height = this.canvas.height * pixelSize | 0;
 
-      while(x < this.canvas.width) {
+      while (x < this.canvas.width) {
         y = 0;
-        while(y < this.canvas.height) {
+        while (y < this.canvas.height) {
           context.drawImage(this.canvas, x, y, 1, 1, x * pixelSize, y * pixelSize, pixelSize, pixelSize);
           y++;
         }
@@ -690,14 +708,14 @@
       var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
       var rgbPalette = [];
-      for(var i = 0; i < palette.length; i++) {
+      for (var i = 0; i < palette.length; i++) {
         rgbPalette.push($.color(palette[i]));
       }
 
 
-      for(var i = 0; i < imgData.data.length; i += 4) {
+      for (var i = 0; i < imgData.data.length; i += 4) {
         var difList = [];
-        for(var j = 0; j < rgbPalette.length; j++) {
+        for (var j = 0; j < rgbPalette.length; j++) {
           var rgbVal = rgbPalette[j];
           var rDif = Math.abs(imgData.data[i] - rgbVal[0]),
             gDif = Math.abs(imgData.data[i + 1] - rgbVal[1]),
@@ -706,8 +724,8 @@
         }
 
         var closestMatch = 0;
-        for(var j = 0; j < palette.length; j++) {
-          if(difList[j] < difList[closestMatch]) {
+        for (var j = 0; j < palette.length; j++) {
+          if (difList[j] < difList[closestMatch]) {
             closestMatch = j;
           }
         }
@@ -728,10 +746,10 @@
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(sourcePixels[i + 3]) {
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if (sourcePixels[i + 3]) {
           var hex = $.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
-          if(palette.indexOf(hex) === -1) palette.push(hex);
+          if (palette.indexOf(hex) === -1) palette.push(hex);
         }
       }
 
@@ -739,7 +757,7 @@
     },
 
     pixelize: function(size) {
-      if(!size) return this;
+      if (!size) return this;
       size = size || 4;
 
       var mozImageSmoothingEnabled = this.context.mozImageSmoothingEnabled;
@@ -768,8 +786,8 @@
 
       var mask = [];
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if(sourcePixels[i + 0] == color[0] && sourcePixels[i + 1] == color[1] && sourcePixels[i + 2] == color[2]) mask.push(inverted || false);
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
+        if (sourcePixels[i + 0] == color[0] && sourcePixels[i + 1] == color[1] && sourcePixels[i + 2] == color[2]) mask.push(inverted || false);
         else mask.push(!inverted);
       }
 
@@ -783,7 +801,7 @@
 
       var mask = [];
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         mask.push((sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3 | 0);
       }
 
@@ -796,7 +814,7 @@
 
       var mask = [];
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         sourcePixels[i + 3] = (sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3 | 0;
 
         sourcePixels[i + 0] = sourcePixels[i + 1] = sourcePixels[i + 2] = 255;
@@ -813,10 +831,10 @@
 
       var mode = typeof mask[0] === "boolean" ? "bool" : "byte";
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         var value = mask[i / 4];
 
-        if(mode === "bool") sourcePixels[i + 3] = 255 * value | 0;
+        if (mode === "bool") sourcePixels[i + 3] = 255 * value | 0;
         else {
           sourcePixels[i + 3] = value | 0;
         }
@@ -836,15 +854,15 @@
       var colorMode = arguments.length === 2 ? "normal" : "gradient";
 
       var color = $.color(arguments[1]);
-      if(colorMode === "gradient") colorB = $.color(arguments[2]);
+      if (colorMode === "gradient") colorB = $.color(arguments[2]);
 
-      for(var i = 0, len = sourcePixels.length; i < len; i += 4) {
+      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         var value = mask[i / 4];
 
-        if(maskType === "byte") value /= 255;
+        if (maskType === "byte") value /= 255;
 
-        if(colorMode === "normal") {
-          if(value) {
+        if (colorMode === "normal") {
+          if (value) {
             sourcePixels[i + 0] = color[0] | 0;
             sourcePixels[i + 1] = color[1] | 0;
             sourcePixels[i + 2] = color[2] | 0;
@@ -863,7 +881,7 @@
     },
 
     clear: function(color) {
-      if(color) {
+      if (color) {
         this.context.fillStyle = color;
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
       } else {
@@ -898,15 +916,15 @@
       var ox = 0;
       var oy = 0;
 
-      if(maxWidth) {
+      if (maxWidth) {
         var line = 0;
         var lines = [""];
 
-        for(var i = 0; i < words.length; i++) {
+        for (var i = 0; i < words.length; i++) {
           var word = words[i] + " ";
           var wordWidth = this.context.measureText(word).width;
 
-          if(ox + wordWidth > maxWidth) {
+          if (ox + wordWidth > maxWidth) {
             lines[++line] = "";
             ox = 0;
           }
@@ -917,11 +935,11 @@
         }
       } else var lines = [text];
 
-      for(var i = 0; i < lines.length; i++) {
+      for (var i = 0; i < lines.length; i++) {
         var oy = y + i * h * 0.6 | 0;
         var lingrad = this.context.createLinearGradient(0, oy, 0, oy + h * 0.6 | 0);
 
-        for(var j = 0; j < gradient.length; j += 2) {
+        for (var j = 0; j < gradient.length; j += 2) {
           lingrad.addColorStop(gradient[j], gradient[j + 1]);
         }
 
@@ -935,7 +953,7 @@
 
     setHsl: function() {
 
-      if(arguments.length === 1) {
+      if (arguments.length === 1) {
         var args = arguments[0];
       } else {
         var args = arguments;
@@ -946,7 +964,7 @@
       var r, g, b, a, h, s, l, hsl = [],
         newPixel = [];
 
-      for(var i = 0, len = pixels.length; i < len; i += 4) {
+      for (var i = 0, len = pixels.length; i < len; i += 4) {
         hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
 
         h = args[0] === null ? hsl[0] : $.limitValue(args[0], 0, 1);
@@ -967,7 +985,7 @@
 
     shiftHsl: function() {
 
-      if(arguments.length === 1) {
+      if (arguments.length === 1) {
         var args = arguments[0];
       } else {
         var args = arguments;
@@ -978,7 +996,7 @@
       var r, g, b, a, h, s, l, hsl = [],
         newPixel = [];
 
-      for(var i = 0, len = pixels.length; i < len; i += 4) {
+      for (var i = 0, len = pixels.length; i < len; i += 4) {
         hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
 
         h = args[0] === null ? hsl[0] : $.wrapValue(hsl[0] + args[0], 0, 1);
@@ -1005,10 +1023,10 @@
       var r, g, b, a, h, s, l, hsl = [],
         newPixel = [];
 
-      for(var i = 0, len = pixels.length; i < len; i += 4) {
+      for (var i = 0, len = pixels.length; i < len; i += 4) {
         hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
 
-        if(Math.abs(hsl[0] - src) < 0.05) h = $.wrapValue(dst, 0, 1);
+        if (Math.abs(hsl[0] - src) < 0.05) h = $.wrapValue(dst, 0, 1);
         else h = hsl[0];
 
         newPixel = $.hslToRgb(h, hsl[1], hsl[2]);
@@ -1030,7 +1048,7 @@
       var r, g, b, a, h, s, l, hsl = [],
         newPixel = [];
 
-      for(var i = 0, len = pixels.length; i < len; i += 4) {
+      for (var i = 0, len = pixels.length; i < len; i += 4) {
         pixels[i + 0] = 255 - pixels[i + 0];
         pixels[i + 1] = 255 - pixels[i + 1];
         pixels[i + 2] = 255 - pixels[i + 2];
@@ -1067,17 +1085,17 @@
       var ox = 0;
       var oy = 0;
 
-      if(maxWidth) {
+      if (maxWidth) {
         var line = 0;
         var lines = [""];
 
-        for(var i = 0; i < words.length; i++) {
+        for (var i = 0; i < words.length; i++) {
           var word = words[i] + " ";
           var wordWidth = this.context.measureText(word).width;
 
-          if(ox + wordWidth > maxWidth) {            
+          if (ox + wordWidth > maxWidth) {
             lines[++line] = "";
-            ox = 0;            
+            ox = 0;
           }
 
           lines[line] += word;
@@ -1088,12 +1106,12 @@
         var lines = [text];
       }
 
-      for(var i = 0; i < lines.length; i++) {
+      for (var i = 0; i < lines.length; i++) {
         var oy = y + i * h * 0.6 | 0;
 
         var text = lines[i];
 
-        if(newlineCallback) newlineCallback.call(this, x, y + oy);
+        if (newlineCallback) newlineCallback.call(this, x, y + oy);
 
         this.fillText(text, x, oy);
       }
@@ -1109,15 +1127,15 @@
       var ox = 0;
       var oy = 0;
 
-      if(maxWidth) {
+      if (maxWidth) {
         var line = 0;
         var lines = [""];
 
-        for(var i = 0; i < words.length; i++) {
+        for (var i = 0; i < words.length; i++) {
           var word = words[i] + " ";
           var wordWidth = this.context.measureText(word).width;
 
-          if(ox + wordWidth > maxWidth) {
+          if (ox + wordWidth > maxWidth) {
             lines[++line] = "";
             ox = 0;
           }
@@ -1173,8 +1191,8 @@
       /* bottom-left */
       this.drawImage(image, 0, image.height - b, l, b, x, y + h - b, l, b);
 
-      if(fill) {
-        if(typeof fill === "string") {
+      if (fill) {
+        if (typeof fill === "string") {
           this.fillStyle(fill).fillRect(x + l, y + t, w - l - r, h - t - b);
         } else {
           this.drawImage(image, l, t, image.width - r - l, image.height - b - t, x + l, y + t, w - l - r, h - t - b);
@@ -1186,8 +1204,8 @@
 
     convolve: function(matrix, mix, divide) {
 
-      if(typeof divide === "undefined") divide = 1;
-      if(typeof mix === "undefined") mix = 1;
+      if (typeof divide === "undefined") divide = 1;
+      if (typeof mix === "undefined") mix = 1;
 
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var matrixSize = Math.sqrt(matrix.length) + 0.5 | 0;
@@ -1200,21 +1218,24 @@
       var output = $.createImageData(this.canvas.width, this.canvas.height);
       var dst = output.data;
 
-      for(var y = 1; y < h - 1; y++) {
-        for(var x = 1; x < w - 1; x++) {
+      for (var y = 1; y < h - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
 
           var dstOff = (y * w + x) * 4;
           var r = 0,
             g = 0,
             b = 0,
             a = 0;
-          for(var cy = 0; cy < matrixSize; cy++) {
-            for(var cx = 0; cx < matrixSize; cx++) {
+
+          for (var cy = 0; cy < matrixSize; cy++) {
+            for (var cx = 0; cx < matrixSize; cx++) {
               var scy = y + cy - halfMatrixSize;
               var scx = x + cx - halfMatrixSize;
-              if(scy >= 0 && scy < sh && scx >= 0 && scx < sw) {
+              if (scy >= 0 && scy < sh && scx >= 0 && scx < sw) {
                 var srcOff = (scy * sw + scx) * 4;
+
                 var wt = matrix[cy * matrixSize + cx] / divide;
+
                 r += src[srcOff + 0] * wt;
                 g += src[srcOff + 1] * wt;
                 b += src[srcOff + 2] * wt;
@@ -1222,16 +1243,14 @@
               }
             }
           }
+
           dst[dstOff + 0] = $.mix(src[dstOff + 0], r, mix);
           dst[dstOff + 1] = $.mix(src[dstOff + 1], g, mix);
           dst[dstOff + 2] = $.mix(src[dstOff + 2], b, mix);
-          dst[dstOff + 3] = src[dstOff + 3];
+          dst[dstOff + 3] = a;
+          // src[dstOff + 3];
         }
       }
-
-      this.context.putImageData(output, 0, 0);
-
-      return this;
     },
 
     blur: function(mix) {
@@ -1251,7 +1270,7 @@
       var pixels = data.data;
       var r, g, b;
 
-      for(var i = 0; i < pixels.length; i += 4) {
+      for (var i = 0; i < pixels.length; i += 4) {
         var r = pixels[i];
         var g = pixels[i + 1];
         var b = pixels[i + 2];
@@ -1269,7 +1288,7 @@
       var pixels = data.data;
       var r, g, b;
 
-      for(var i = 0; i < pixels.length; i += 4) {
+      for (var i = 0; i < pixels.length; i += 4) {
         pixels[i + 0] = $.limitValue((pixels[i + 0] * .393) + (pixels[i + 1] * .769) + (pixels[i + 2] * .189), 0, 255);
         pixels[i + 1] = $.limitValue((pixels[i + 0] * .349) + (pixels[i + 1] * .686) + (pixels[i + 2] * .168), 0, 255);
         pixels[i + 2] = $.limitValue((pixels[i + 0] * .272) + (pixels[i + 1] * .534) + (pixels[i + 2] * .131), 0, 255);
@@ -1294,17 +1313,17 @@
 
     getImageData: function() {
       return this.context.getImageData.apply(this.context, arguments);
-    },    
+    },
 
     /* framework */
 
     framework: function(args, context) {
-      if(context) {
+      if (context) {
         this.tempContext = context === true ? args : context;
       }
 
-      for(var name in args) {
-        if(this[name]) this[name](args[name], undefined, undefined);
+      for (var name in args) {
+        if (this[name]) this[name](args[name], undefined, undefined);
       }
 
       this.tempContext = null;
@@ -1315,6 +1334,7 @@
     onStep: function(callback, interval) {
       var self = this.tempContext || this;
       var lastTick = Date.now();
+      interval = interval || 25;
 
       this.timer = setInterval(function() {
         var delta = Date.now() - lastTick;
@@ -1345,7 +1365,7 @@
     onMouseMove: function(callback) {
       var self = this.tempContext || this;
 
-      if(!MOBILE) this.canvas.addEventListener("mousemove", function(e) {
+      if (!MOBILE) this.canvas.addEventListener("mousemove", function(e) {
         var pos = $.mousePosition(e);
         callback.call(self, pos.x, pos.y);
       });
@@ -1362,7 +1382,7 @@
     onMouseDown: function(callback) {
       var self = this.tempContext || this;
 
-      if(!MOBILE) {
+      if (!MOBILE) {
         this.canvas.addEventListener("mousedown", function(e) {
           var pos = $.mousePosition(e);
           callback.call(self, pos.x, pos.y, e.button);
@@ -1380,7 +1400,7 @@
     onMouseUp: function(callback) {
       var self = this.tempContext || this;
 
-      if(!MOBILE) {
+      if (!MOBILE) {
         this.canvas.addEventListener("mouseup", function(e) {
           var pos = $.mousePosition(e);
           callback.call(self, pos.x, pos.y, e.button);
@@ -1430,15 +1450,15 @@
         var swipeTime = (swipeET - swipeST);
         var swipeDir = undefined;
 
-        if(swipeDist > swipeThr && swipeTime < swipeTim) {
-          if(Math.abs(xDif) > Math.abs(yDif)) {
-            if(xDif > 0) {
+        if (swipeDist > swipeThr && swipeTime < swipeTim) {
+          if (Math.abs(xDif) > Math.abs(yDif)) {
+            if (xDif > 0) {
               swipeDir = "left";
             } else {
               swipeDir = "right";
             }
           } else {
-            if(yDif > 0) {
+            if (yDif > 0) {
               swipeDir = "up";
             } else {
               swipeDir = "down";
@@ -1471,8 +1491,10 @@
     },
 
     onKeyDown: function(callback) {
+      var self = this.tempContext || this;
+
       document.addEventListener("keydown", function(e) {
-        if(e.which >= 48 && e.which <= 90) var keyName = String.fromCharCode(e.which).toLowerCase();
+        if (e.which >= 48 && e.which <= 90) var keyName = String.fromCharCode(e.which).toLowerCase();
         else var keyName = $.keycodes[e.which];
         callback.call(self, keyName);
       });
@@ -1480,16 +1502,19 @@
     },
 
     onKeyUp: function(callback) {
+      var self = this.tempContext || this;
+
       document.addEventListener("keyup", function(e) {
-        if(e.which >= 48 && e.which <= 90) var keyName = String.fromCharCode(e.which).toLowerCase();
+        if (e.which >= 48 && e.which <= 90) var keyName = String.fromCharCode(e.which).toLowerCase();
         else var keyName = $.keycodes[e.which];
         callback.call(self, keyName);
       });
       return this;
     },
 
+
     onResize: function(callback) {
-      var self = this;
+      var self = this.tempContext || this;
 
       window.addEventListener("resize", function() {
         callback.call(self, window.innerWidth, window.innerHeight);
@@ -1501,14 +1526,15 @@
     },
 
     onDropImage: function(callback) {
-      var self = this;
+      var self = this.tempContext || this;
+
       document.addEventListener('drop', function(e) {
         e.stopPropagation();
         e.preventDefault();
 
         var file = e.dataTransfer.files[0];
 
-        if(!(/image/i).test(file.type)) return false;
+        if (!(/image/i).test(file.type)) return false;
         var reader = new FileReader();
 
         reader.onload = function(e) {
@@ -1537,65 +1563,101 @@
   /* extend wrapper with drawing context methods */
 
   var methods = ["arc", "arcTo", "beginPath", "bezierCurveTo", "clearRect", "clip", "closePath", "createImageData", "createLinearGradient", "createRadialGradient", "createPattern", "drawFocusRing", "drawImage", "fill", "fillRect", "fillText", "getImageData", "isPointInPath", "lineTo", "measureText", "moveTo", "putImageData", "quadraticCurveTo", "rect", "restore", "rotate", "save", "scale", "setTransform", "stroke", "strokeRect", "strokeText", "transform", "translate"];
-  for(var i = 0; i < methods.length; i++) {
+  for (var i = 0; i < methods.length; i++) {
     var name = methods[i];
-    if(!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
+    if (!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
   };
 
   /* create setters and getters */
 
   var properties = ["canvas", "fillStyle", "font", "globalAlpha", "globalCompositeOperation", "lineCap", "lineJoin", "lineWidth", "miterLimit", "shadowOffsetX", "shadowOffsetY", "shadowBlur", "shadowColor", "strokeStyle", "textAlign", "textBaseline"];
-  for(var i = 0; i < properties.length; i++) {
+  for (var i = 0; i < properties.length; i++) {
     var name = properties[i];
-    if(!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
+    if (!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
   };
 
   /* color */
 
-  $.Color = function() {
-    if(arguments.length) this.parse(arguments);
+  $.Color = function(data, type) {
+    if (arguments.length) this.parse(data);
   }
 
   $.Color.prototype = {
-    parse: function(args) {
-      if(typeof args[0] === "string") {
+    parse: function(args, type) {
+      if (args[0] instanceof $.Color) {
+        this[0] = args[0][0];
+        this[1] = args[0][1];
+        this[2] = args[0][2];
+        this[3] = args[0][3];
+        return;
+      }
+
+      if (typeof args === "string") {
         var match = null;
 
-        if(args[0][0] === "#") {
-          var rgb = $.hexToRgb(args[0]);
+        if (args[0] === "#") {
+          var rgb = $.hexToRgb(args);
           this[0] = rgb[0];
           this[1] = rgb[1];
           this[2] = rgb[2];
           this[3] = 1.0;
-        } else if (match = args[0].match(/rgb\((.*),(.*),(.*)\)/)) {
+        } else if (match = args.match(/rgb\((.*),(.*),(.*)\)/)) {
           this[0] = match[1] | 0;
           this[1] = match[2] | 0;
           this[2] = match[3] | 0;
           this[3] = 1.0;
-        } else if (match = args[0].match(/rgba\((.*),(.*),(.*)\)/)) {
+        } else if (match = args.match(/rgba\((.*),(.*),(.*)\)/)) {
           this[0] = match[1] | 0;
           this[1] = match[2] | 0;
           this[2] = match[3] | 0;
           this[3] = match[4] | 0;
-        } else if (match = args[0].match(/hsl\((.*),(.*),(.*)\)/)) {
-          var color = $.hslToRgb(match[1], match[2], match[3]);
-          this[0] = color[0];
-          this[1] = color[1];
-          this[2] = color[2];
-          this[3] = 1.0;
-        } else if (match = args[0].match(/hsv\((.*),(.*),(.*)\)/)) {
-          var color = $.hsTvoRgb(match[1], match[2], match[3]);
-          this[0] = color[0];
-          this[1] = color[1];
-          this[2] = color[2];
-          this[3] = 1.0;
+        } else if (match = args.match(/hsl\((.*),(.*),(.*)\)/)) {
+          this.fromHsl(match[1], match[2], match[3]);
+        } else if (match = args.match(/hsv\((.*),(.*),(.*)\)/)) {
+          this.fromHsv(match[1], match[2], match[3]);
         }
       } else {
-        this[0] = args[0];
-        this[1] = args[1];
-        this[2] = args[2];
-        this[3] = typeof args[3] === "undefined" ? 1.0 : args[3];
+        switch (type) {
+          case "hsl":
+          case "hsla":
+
+            this.fromHsl(args[0], args[1], args[2], args[3]);
+            break;
+
+          case "hsv":
+          case "hsva":
+
+            this.fromHsv(args[0], args[1], args[2], args[3]);
+            break;
+
+          default:
+            this[0] = args[0];
+            this[1] = args[1];
+            this[2] = args[2];
+            this[3] = typeof args[3] === "undefined" ? 1.0 : args[3];
+            break;
+        }
       }
+    },
+
+    fromHsl: function() {
+      var components = arguments[0] instanceof Array ? arguments[0] : arguments;
+      var color = $.hslToRgb(components[0], components[1], components[2]);
+
+      this[0] = color[0];
+      this[1] = color[1];
+      this[2] = color[2];
+      this[3] = typeof arguments[3] === "undefined" ? 1.0 : arguments[3];
+    },
+
+    fromHsv: function() {
+      var components = arguments[0] instanceof Array ? arguments[0] : arguments;
+      var color = $.hsvToRgb(components[0], components[1], components[2]);
+
+      this[0] = color[0];
+      this[1] = color[1];
+      this[2] = color[2];
+      this[3] = typeof arguments[3] === "undefined" ? 1.0 : arguments[3];
     },
 
     toArray: function() {
@@ -1615,18 +1677,50 @@
     },
 
     toHsl: function() {
-      return $.rgbToHsl(this[0], this[1], this[2]);
+      var c = $.rgbToHsl(this[0], this[1], this[2]);
+      c[3] = this[3];
+      return c;
     },
 
     toHsv: function() {
-      return $.rgbToHsv(this[0], this[1], this[2]);
+      var c = $.rgbToHsv(this[0], this[1], this[2]);
+      c[3] = this[3];
+      return c;
+    },
+
+    gradient: function(target, steps) {
+      var targetColor = $.color(target);
+    },
+
+    shiftHsl: function() {
+      var hsl = this.toHsl();
+
+      var h = arguments[0] === null ? hsl[0] : $.wrapValue(hsl[0] + arguments[0], 0, 1);
+      var s = arguments[1] === null ? hsl[1] : $.limitValue(hsl[1] + arguments[1], 0, 1);
+      var l = arguments[2] === null ? hsl[2] : $.limitValue(hsl[2] + arguments[2], 0, 1);
+
+      this.fromHsl(h, s, l);
+
+      return this;
+    },
+
+    setHsl: function() {
+      var hsl = this.toHsl();
+
+      var h = arguments[0] === null ? hsl[0] : $.limitValue(arguments[0], 0, 1);
+      var s = arguments[1] === null ? hsl[1] : $.limitValue(arguments[1], 0, 1);
+      var l = arguments[2] === null ? hsl[2] : $.limitValue(arguments[2], 0, 1);
+
+      this.fromHsl(h, s, l);
+
+      return this;
     }
 
   };
 
   window["cq"] = window["CanvasQuery"] = $;
 
-  if(typeof define === "function" && define.amd) {
+  if (typeof define === "function" && define.amd) {
     define([], function() {
       return $;
     });

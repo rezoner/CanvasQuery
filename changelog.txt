@@ -1,8 +1,11 @@
-0.9 
+0.8.4
 
-save trim coordinates
-inverted in colorToMask
-bug with getImageData
++ save trim coordinates
++ inverted in colorToMask
++ improved color conversions
+
+! fixed context error for events other than mouse
+! bug with getImageData
 
 0.8.1
 
