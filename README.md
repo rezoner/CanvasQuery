@@ -26,7 +26,7 @@ cq(640, 480)
 Current version 0.8
 
 * [Development](http://canvasquery.com/canvasquery.js) 45 k (8k gzipped) 
-* [Production](http://canvasquery.com/canvasquery.js) 30 k (6k gzipped)
+* [Production](http://canvasquery.com/canvasquery.min.js) 30 k (6k gzipped)
 
 # Showcase
 
