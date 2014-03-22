@@ -662,8 +662,7 @@
       canvas.height = this.canvas.height * pixelSize | 0;
 
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if (!sourcePixels[i + 3]) continue;
-        context.fillStyle = $.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
+        context.fillStyle = 'rgba('+sourcePixels[i + 0]+','+sourcePixels[i + 1]+','+sourcePixels[i + 2]+','+sourcePixels[i + 3]/255+')';
 
         var x = (i / 4) % this.canvas.width;
         var y = (i / 4) / this.canvas.width | 0;
