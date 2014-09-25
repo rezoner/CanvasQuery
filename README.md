@@ -1,4 +1,4 @@
-<p class="center"><img src="http://canvasquery.com/images/scheme-x3.png"></p>
+<p class="center"><img src="http://canvasquery.com/images/scheme-transparent.png"></p>
 
 ## Canvas Query
 
