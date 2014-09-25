@@ -1,25 +1,28 @@
 /*     
-  Canvas Query 0.8.4
+  Canvas Query 1.0.0
   http://canvasquery.org
-  (c) 2012-2013 http://rezoner.net
+  (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
 */
 
-(function(window, undefined) {
+(function() {
 
-  var MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
+  var COCOONJS = false;
+  var NODEJS = !(typeof exports === "undefined");
 
+  if (NODEJS) {
+    var Canvas = require('canvas');
+    var Image = Canvas.Image;
+    var fs = require("fs");
+  } else {
+    var Canvas = window.HTMLCanvasElement;
+    var Image = window.HTMLImageElement;
+    var COCOONJS = window.CocoonJS && window.CocoonJS.App;
+  }
 
-  window.requestAnimationFrame = (function() {
-    return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback) {
-      window.setTimeout(callback, 1000 / 60);
-    };
-  })();
-
-
-  var $ = function(selector) {
+  var cq = function(selector) {
     if (arguments.length === 0) {
-      var canvas = $.createCanvas(window.innerWidth, window.innerHeight);
+      var canvas = cq.createCanvas(window.innerWidth, window.innerHeight);
       window.addEventListener("resize", function() {
         // canvas.width = window.innerWidth;
         // canvas.height = window.innerHeight;
@@ -27,19 +30,41 @@
     } else if (typeof selector === "string") {
       var canvas = document.querySelector(selector);
     } else if (typeof selector === "number") {
-      var canvas = $.createCanvas(arguments[0], arguments[1]);
-    } else if (selector instanceof Image || selector instanceof HTMLImageElement) {
-      var canvas = $.createCanvas(selector);
-    } else if (selector instanceof $.Wrapper) {
+      var canvas = cq.createCanvas(arguments[0], arguments[1]);
+    } else if (selector instanceof Image) {
+      var canvas = cq.createCanvas(selector);
+    } else if (selector instanceof cq.Layer) {
       return selector;
     } else {
       var canvas = selector;
     }
 
-    return new $.Wrapper(canvas);
+    return new cq.Layer(canvas);
+  };
+
+  cq.lineSpacing = 1.0;
+
+  cq.cocoon = function(selector) {
+    if (arguments.length === 0) {
+      var canvas = cq.createCocoonCanvas(window.innerWidth, window.innerHeight);
+      window.addEventListener("resize", function() {});
+    } else if (typeof selector === "string") {
+      var canvas = document.querySelector(selector);
+    } else if (typeof selector === "number") {
+      var canvas = cq.createCocoonCanvas(arguments[0], arguments[1]);
+    } else if (selector instanceof Image) {
+      var canvas = cq.createCocoonCanvas(selector);
+    } else if (selector instanceof cq.Layer) {
+      return selector;
+    } else {
+      var canvas = selector;
+    }
+
+    return new cq.Layer(canvas);
   }
 
-  $.extend = function() {
+
+  cq.extend = function() {
     for (var i = 1; i < arguments.length; i++) {
       for (var j in arguments[i]) {
         arguments[0][j] = arguments[i][j];
@@ -49,14 +74,14 @@
     return arguments[0];
   };
 
-  $.augment = function() {
+  cq.augment = function() {
     for (var i = 1; i < arguments.length; i++) {
       _.extend(arguments[0], arguments[i]);
       arguments[i](arguments[0]);
     }
   };
 
-  $.distance = function(x1, y1, x2, y2) {
+  cq.distance = function(x1, y1, x2, y2) {
     if (arguments.length > 2) {
       var dx = x1 - x2;
       var dy = y1 - y2;
@@ -67,245 +92,102 @@
     }
   };
 
-  $.extend($, {
+  cq.extend(cq, {
 
-    keycodes: {
-      37: "left",
-      38: "up",
-      39: "right",
-      40: "down",
-      45: "insert",
-      46: "delete",
-      8: "backspace",
-      9: "tab",
-      13: "enter",
-      16: "shift",
-      17: "ctrl",
-      18: "alt",
-      19: "pause",
-      20: "capslock",
-      27: "escape",
-      32: "space",
-      33: "pageup",
-      34: "pagedown",
-      35: "end",
-      112: "f1",
-      113: "f2",
-      114: "f3",
-      115: "f4",
-      116: "f5",
-      117: "f6",
-      118: "f7",
-      119: "f8",
-      120: "f9",
-      121: "f10",
-      122: "f11",
-      123: "f12",
-      144: "numlock",
-      145: "scrolllock",
-      186: "semicolon",
-      187: "equal",
-      188: "comma",
-      189: "dash",
-      190: "period",
-      191: "slash",
-      192: "graveaccent",
-      219: "openbracket",
-      220: "backslash",
-      221: "closebraket",
-      222: "singlequote"
-    },
-
-    cleanArray: function(array, property) {
-
-      var lastArgument = arguments[arguments.length - 1];
-      var isLastArgumentFunction = typeof lastArgument === "function";
-
-      for (var i = 0, len = array.length; i < len; i++) {
-        if (array[i] === null || (property && array[i][property])) {
-          if (isLastArgumentFunction) {
-            lastArgument(array[i]);
-          }
-          array.splice(i--, 1);
-          len--;
-        }
-      }
-    },
-
-    specialBlendFunctions: ["color", "value", "hue", "saturation"],
-
-    blendFunctions: {
-      normal: function(a, b) {
-        return b;
-      },
-
-      overlay: function(a, b) {
-        a /= 255;
-        b /= 255;
-        var result = 0;
-
-        if (a < 0.5) result = 2 * a * b;
-        else result = 1 - 2 * (1 - a) * (1 - b);
-
-        return Math.min(255, Math.max(0, result * 255 | 0));
-      },
-
-      hardLight: function(a, b) {
-        return $.blendFunctions.overlay(b, a);
-      },
-
-      softLight: function(a, b) {
-        a /= 255;
-        b /= 255;
-
-        var v = (1 - 2 * b) * (a * a) + 2 * b * a;
-        return $.limitValue(v * 255, 0, 255);
-      },
-
-      dodge: function(a, b) {
-        return Math.min(256 * a / (255 - b + 1), 255);
-      },
-
-      burn: function(a, b) {
-        return 255 - Math.min(256 * (255 - a) / (b + 1), 255);
-      },
-
-      multiply: function(a, b) {
-        return b * a / 255;
-      },
-
-      divide: function(a, b) {
-        return Math.min(256 * a / (b + 1), 255);
-      },
-
-      screen: function(a, b) {
-        return 255 - (255 - b) * (255 - a) / 255;
-      },
-
-      grainExtract: function(a, b) {
-        return $.limitValue(a - b + 128, 0, 255);
-      },
-
-      grainMerge: function(a, b) {
-        return $.limitValue(a + b - 128, 0, 255);
-      },
-
-      difference: function(a, b) {
-        return Math.abs(a - b);
-      },
-
-      addition: function(a, b) {
-        return Math.min(a + b, 255);
-      },
-
-      substract: function(a, b) {
-        return Math.max(a - b, 0);
-      },
-
-      darkenOnly: function(a, b) {
-        return Math.min(a, b);
-      },
-
-      lightenOnly: function(a, b) {
-        return Math.max(a, b);
-      },
-
-      color: function(a, b) {
-        var aHSL = $.rgbToHsl(a);
-        var bHSL = $.rgbToHsl(b);
-
-        return $.hslToRgb(bHSL[0], bHSL[1], aHSL[2]);
-      },
-
-      hue: function(a, b) {
-        var aHSV = $.rgbToHsv(a);
-        var bHSV = $.rgbToHsv(b);
-
-        if (!bHSV[1]) return $.hsvToRgb(aHSV[0], aHSV[1], aHSV[2]);
-        else return $.hsvToRgb(bHSV[0], aHSV[1], aHSV[2]);
-      },
-
-      value: function(a, b) {
-        var aHSV = $.rgbToHsv(a);
-        var bHSV = $.rgbToHsv(b);
-
-        return $.hsvToRgb(aHSV[0], aHSV[1], bHSV[2]);
-      },
-
-      saturation: function(a, b) {
-        var aHSV = $.rgbToHsv(a);
-        var bHSV = $.rgbToHsv(b);
-
-        return $.hsvToRgb(aHSV[0], bHSV[1], aHSV[2]);
-      }
-    },
+    smoothing: true,
 
     blend: function(below, above, mode, mix) {
+
       if (typeof mix === "undefined") mix = 1;
 
-      var below = $(below);
-      var above = $(above);
+      var below = cq(below);
+      var mask = below.clone();
+      var above = cq(above);
 
-      var belowCtx = below.context;
-      var aboveCtx = above.context;
+      below.save();
+      below.globalAlpha(mix);
+      below.globalCompositeOperation(mode);
+      below.drawImage(above.canvas, 0, 0);
+      below.restore();
 
-      var belowData = belowCtx.getImageData(0, 0, below.canvas.width, below.canvas.height);
-      var aboveData = aboveCtx.getImageData(0, 0, above.canvas.width, above.canvas.height);
+      mask.save();
+      mask.globalCompositeOperation("source-in");
+      mask.drawImage(below.canvas, 0, 0);
+      mask.restore();
 
-      var belowPixels = belowData.data;
-      var abovePixels = aboveData.data;
+      return mask;
+    },
 
-      var imageData = this.createImageData(below.canvas.width, below.canvas.height);
-      var pixels = imageData.data;
+    matchColor: function(color, palette) {
+      var rgbPalette = [];
 
-      var blendingFunction = $.blendFunctions[mode];
+      for (var i = 0; i < palette.length; i++) {
+        rgbPalette.push(cq.color(palette[i]));
+      }
 
-      if ($.specialBlendFunctions.indexOf(mode) !== -1) {
-        for (var i = 0, len = belowPixels.length; i < len; i += 4) {
-          var rgb = blendingFunction([belowPixels[i + 0], belowPixels[i + 1], belowPixels[i + 2]], [abovePixels[i + 0], abovePixels[i + 1], abovePixels[i + 2]]);
+      var imgData = cq.color(color);
 
-          pixels[i + 0] = belowPixels[i + 0] + (rgb[0] - belowPixels[i + 0]) * mix;
-          pixels[i + 1] = belowPixels[i + 1] + (rgb[1] - belowPixels[i + 1]) * mix;
-          pixels[i + 2] = belowPixels[i + 2] + (rgb[2] - belowPixels[i + 2]) * mix;
+      var difList = [];
+      for (var j = 0; j < rgbPalette.length; j++) {
+        var rgbVal = rgbPalette[j];
+        var rDif = Math.abs(imgData[0] - rgbVal[0]),
+          gDif = Math.abs(imgData[1] - rgbVal[1]),
+          bDif = Math.abs(imgData[2] - rgbVal[2]);
+        difList.push(rDif + gDif + bDif);
+      }
 
-          pixels[i + 3] = belowPixels[i + 3];
-        }
-      } else {
-
-        for (var i = 0, len = belowPixels.length; i < len; i += 4) {
-          var r = blendingFunction(belowPixels[i + 0], abovePixels[i + 0]);
-          var g = blendingFunction(belowPixels[i + 1], abovePixels[i + 1]);
-          var b = blendingFunction(belowPixels[i + 2], abovePixels[i + 2]);
-
-          pixels[i + 0] = belowPixels[i + 0] + (r - belowPixels[i + 0]) * mix;
-          pixels[i + 1] = belowPixels[i + 1] + (g - belowPixels[i + 1]) * mix;
-          pixels[i + 2] = belowPixels[i + 2] + (b - belowPixels[i + 2]) * mix;
-
-          pixels[i + 3] = belowPixels[i + 3];
+      var closestMatch = 0;
+      for (var j = 0; j < palette.length; j++) {
+        if (difList[j] < difList[closestMatch]) {
+          closestMatch = j;
         }
       }
 
-      below.context.putImageData(imageData, 0, 0);
+      return palette[closestMatch];
+    },
 
-      return below;
+    temp: function(width, height) {
+      if (!this.tempLayer) {
+        this.tempLayer = cq(1, 1);
+      }
+
+      if (width instanceof Image) {
+        this.tempLayer.width = width.width;
+        this.tempLayer.height = width.height;
+        this.tempLayer.context.drawImage(width, 0, 0);
+      } else if (width instanceof Canvas) {
+        this.tempLayer.width = width.width;
+        this.tempLayer.height = width.height;
+        this.tempLayer.context.drawImage(width, 0, 0);
+      } else if (width instanceof CanvasQuery.Layer) {
+        this.tempLayer.width = width.width;
+        this.tempLayer.height = width.height;
+        this.tempLayer.context.drawImage(width.canvas, 0, 0);
+      } else {
+        this.tempLayer.width = width;
+        this.tempLayer.height = height;
+      }
+
+      return this.tempLayer;
     },
 
     wrapValue: function(value, min, max) {
-      var d = Math.abs(max - min);
-      return min + (value - min) % d;
+      if (value < min) return max + (value % max);
+      if (value >= max) return value % max;
+      return value;
     },
 
     limitValue: function(value, min, max) {
       return value < min ? min : value > max ? max : value;
     },
 
-    mix: function(a, b, ammount) {
-      return a + (b - a) * ammount;
+    mix: function(a, b, amount) {
+      return a + (b - a) * amount;
     },
 
     hexToRgb: function(hex) {
       if (hex.length === 7) return ['0x' + hex[1] + hex[2] | 0, '0x' + hex[3] + hex[4] | 0, '0x' + hex[5] + hex[6] | 0];
-      else return ['0x' + hex[1] | 0, '0x' + hex[2], '0x' + hex[3] | 0];
+      else return ['0x' + hex[1] + hex[1] | 0, '0x' + hex[2] + hex[2] | 0, '0x' + hex[3] + hex[3] | 0];
     },
 
     rgbToHex: function(r, g, b) {
@@ -351,26 +233,27 @@
 
     /* author: http://mjijackson.com/ */
 
+    hue2rgb: function(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    },
+
     hslToRgb: function(h, s, l) {
       var r, g, b;
 
       if (s == 0) {
         r = g = b = l; // achromatic
       } else {
-        function hue2rgb(p, q, t) {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p + (q - p) * 6 * t;
-          if (t < 1 / 2) return q;
-          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-          return p;
-        }
 
         var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
         var p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
+        r = this.hue2rgb(p, q, h + 1 / 3);
+        g = this.hue2rgb(p, q, h);
+        b = this.hue2rgb(p, q, h - 1 / 3);
       }
 
       return [r * 255 | 0, g * 255 | 0, b * 255 | 0];
@@ -441,19 +324,54 @@
           break;
       }
 
-      return [r * 255 | 0, g * 255 | 0, b * 255 | 0];
+      return [r * 255, g * 255, b * 255];
     },
 
     color: function() {
-      var result = new $.Color();
+      var result = new cq.Color();
       result.parse(arguments[0], arguments[1]);
       return result;
     },
 
-    createCanvas: function(width, height) {
-      var result = document.createElement("canvas");
+    poolArray: [],
 
-      if (arguments[0] instanceof Image || arguments[0] instanceof HTMLImageElement) {
+    pool: function() {
+
+      if (!this.poolArray.length) {
+        for (var i = 0; i < 100; i++) {
+          this.poolArray.push(this.createCanvas(1, 1));
+        }
+      }
+
+      return this.poolArray.pop();
+
+    },
+
+    createCanvas: function(width, height) {
+      if (NODEJS) {
+        var result = new Canvas;
+      } else {
+        var result = document.createElement("canvas");
+      }
+
+      if (arguments[0] instanceof Image || arguments[0] instanceof Canvas) {
+        var image = arguments[0];
+        result.width = image.width;
+        result.height = image.height;
+        result.getContext("2d").drawImage(image, 0, 0);
+      } else {
+        result.width = width;
+        result.height = height;
+      }
+
+
+      return result;
+    },
+
+    createCocoonCanvas: function(width, height) {
+      var result = document.createElement("screencanvas");
+
+      if (arguments[0] instanceof Image) {
         var image = arguments[0];
         result.width = image.width;
         result.height = image.height;
@@ -467,58 +385,28 @@
     },
 
     createImageData: function(width, height) {
-      return document.createElement("Canvas").getContext("2d").createImageData(width, height);
-    },
-
-
-    /* https://gist.github.com/3781251 */
-
-    mousePosition: function(event) {
-      var totalOffsetX = 0,
-        totalOffsetY = 0,
-        coordX = 0,
-        coordY = 0,
-        currentElement = event.target || event.srcElement,
-        mouseX = 0,
-        mouseY = 0;
-
-      // Traversing the parents to get the total offset
-      do {
-        totalOffsetX += currentElement.offsetLeft;
-        totalOffsetY += currentElement.offsetTop;
-      }
-      while ((currentElement = currentElement.offsetParent));
-      // Set the event to first touch if using touch-input
-      if (event.changedTouches && event.changedTouches[0] !== undefined) {
-        event = event.changedTouches[0];
-      }
-      // Use pageX to get the mouse coordinates
-      if (event.pageX || event.pageY) {
-        mouseX = event.pageX;
-        mouseY = event.pageY;
-      }
-      // IE8 and below doesn't support event.pageX
-      else if (event.clientX || event.clientY) {
-        mouseX = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
-        mouseY = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
-      }
-      // Subtract the offset from the mouse coordinates
-      coordX = mouseX - totalOffsetX;
-      coordY = mouseY - totalOffsetY;
-
-      return {
-        x: coordX,
-        y: coordY
-      };
+      return cq.createCanvas(width, height).getContext("2d").createImageData(width, height);
     }
+
   });
 
-  $.Wrapper = function(canvas) {
+  cq.Layer = function(canvas) {
     this.context = canvas.getContext("2d");
     this.canvas = canvas;
+    this.update();
   }
 
-  $.Wrapper.prototype = {
+  cq.Layer.prototype = {
+
+    update: function() {
+      this.context.webkitImageSmoothingEnabled = cq.smoothing;
+      this.context.mozImageSmoothingEnabled = cq.smoothing;
+      this.context.msImageSmoothingEnabled = cq.smoothing;
+      this.context.imageSmoothingEnabled = cq.smoothing;
+
+      if (COCOONJS) CocoonJS.App.setAntialias(cq.smoothing);
+    },
+
     appendTo: function(selector) {
       if (typeof selector === "object") {
         var element = selector;
@@ -531,33 +419,135 @@
       return this;
     },
 
+    a: function(a) {
+      if (arguments.length) {
+        this.previousAlpha = this.globalAlpha();
+        return this.globalAlpha(a);
+      } else
+        return this.globalAlpha();
+    },
+
+    ra: function() {
+      return this.a(this.previousAlpha);
+    },
+
+    drawRegion: function(image, region, x, y, scale) {
+      scale = scale || 1;
+
+      return this.drawImage(
+        image, region[0], region[1], region[2], region[3],
+        x | 0, y | 0, region[2] * scale | 0, region[3] * scale | 0
+      );
+    },
+
+    cache: function() {
+      return this.clone().canvas;
+
+      /* FFS .... image.src is no longer synchronous when assigning dataURL */
+
+      var image = new Image;
+      image.src = this.canvas.toDataURL();
+      return image;
+    },
+
     blendOn: function(what, mode, mix) {
-      $.blend(what, this, mode, mix);
+      cq.blend(what, this, mode, mix);
 
       return this;
+    },
+
+    posterize: function(pc, inc) {
+      pc = pc || 32;
+      inc = inc || 4;
+      var imgdata = this.getImageData(0, 0, this.width, this.height);
+      var data = imgdata.data;
+
+      for (var i = 0; i < data.length; i += inc) {
+        data[i] -= data[i] % pc; // set value to nearest of 8 possibilities
+        data[i + 1] -= data[i + 1] % pc; // set value to nearest of 8 possibilities
+        data[i + 2] -= data[i + 2] % pc; // set value to nearest of 8 possibilities
+      }
+
+      this.putImageData(imgdata, 0, 0); // put image data to canvas
+    },
+
+
+    bw: function(pc) {
+      pc = 128;
+      var imgdata = this.getImageData(0, 0, this.width, this.height);
+      var data = imgdata.data;
+      // 8-bit: rrr ggg bb
+      for (var i = 0; i < data.length; i += 4) {
+        var v = ((data[i] + data[i + 1] + data[i + 2]) / 3);
+
+        v = (v / 128 | 0) * 128;
+        //data[i] = v; // set value to nearest of 8 possibilities
+        //data[i + 1] = v; // set value to nearest of 8 possibilities
+        data[i + 2] = (v / 255) * data[i]; // set value to nearest of 8 possibilities
+
+      }
+
+      this.putImageData(imgdata, 0, 0); // put image data to canvas
     },
 
     blend: function(what, mode, mix) {
       if (typeof what === "string") {
         var color = what;
-        what = $($.createCanvas(this.canvas.width, this.canvas.height));
+        what = cq(this.canvas.width, this.canvas.height);
         what.fillStyle(color).fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
 
-      $.blend(this, what, mode, mix);
+      var result = cq.blend(this, what, mode, mix);
+
+      this.canvas = result.canvas;
+      this.context = result.context;
 
       return this;
     },
 
-    circle: function(x, y, r) {
+
+    textWithBackground: function(text, x, y, background, padding) {
+      var w = this.measureText(text).width;
+      var h = this.fontHeight() * 0.8;
+      var f = this.fillStyle();
+      var padding = padding || 2;
+
+      this.fillStyle(background).fillRect(x - w / 2 - padding * 2, y - padding, w + padding * 4, h + padding * 2)
+      this.fillStyle(f).textAlign("center").textBaseline("top").fillText(text, x, y);
+
+      return this;
+    },
+
+    fillCircle: function(x, y, r) {
       this.context.beginPath();
+      this.context.arc(x, y, r, 0, Math.PI * 2);
+      this.context.fill();
+      return this;
+    },
+
+    strokeCircle: function(x, y, r) {
+      this.context.beginPath();
+      this.context.arc(x, y, r, 0, Math.PI * 2);
+      this.context.stroke();
+      return this;
+    },
+
+    circle: function(x, y, r) {
       this.context.arc(x, y, r, 0, Math.PI * 2);
       return this;
     },
 
     crop: function(x, y, w, h) {
 
-      var canvas = $.createCanvas(w, h);
+      if (arguments.length === 1) {
+
+        var y = arguments[0][1];
+        var w = arguments[0][2];
+        var h = arguments[0][3];
+        var x = arguments[0][0];
+      }
+
+      var canvas = cq.createCanvas(w, h);
       var context = canvas.getContext("2d");
 
       context.drawImage(this.canvas, x, y, w, h, 0, 0, w, h);
@@ -570,7 +560,7 @@
     },
 
     set: function(properties) {
-      $.extend(this.context, properties);
+      cq.extend(this.context, properties);
     },
 
     resize: function(width, height) {
@@ -582,7 +572,7 @@
         h = arguments[0] * this.canvas.height | 0;
       } else {
 
-        if (height === null) {
+        if (height === false) {
           if (this.canvas.width > width) {
             h = this.canvas.height * (width / this.canvas.width) | 0;
             w = width;
@@ -590,7 +580,7 @@
             w = this.canvas.width;
             h = this.canvas.height;
           }
-        } else if (width === null) {
+        } else if (width === false) {
           if (this.canvas.width > width) {
             w = this.canvas.width * (height / this.canvas.height) | 0;
             h = height;
@@ -601,19 +591,41 @@
         }
       }
 
-      var $resized = $(w, h).drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, w, h);
-      this.canvas = $resized.canvas;
-      this.context = $resized.context;
+      var cqresized = cq(w, h).drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, w, h);
+      this.canvas = cqresized.canvas;
+      this.context = cqresized.context;
 
       return this;
     },
 
+    imageLine: function(image, region, x, y, ex, ey, scale) {
+      if (!region) region = [0, 0, image.width, image.height];
+
+      var distance = cq.distance(x, y, ex, ey);
+      var count = distance / region[3] + 0.5 | 0;
+      var angle = Math.atan2(ey - y, ex - x) + Math.PI / 2;
+
+      this.save();
+
+      this.translate(x, y);
+      this.rotate(angle);
+
+      if (scale) this.scale(scale, 1.0);
+
+      for (var i = 0; i <= count; i++) {
+        this.drawRegion(image, region, -region[2] / 2 | 0, -region[3] * (i + 1));
+      }
+
+      this.restore();
+
+      return this;
+    },
 
     trim: function(color, changes) {
       var transparent;
 
       if (color) {
-        color = $.color(color).toArray();
+        color = cq.color(color).toArray();
         transparent = !color[3];
       } else transparent = true;
 
@@ -622,10 +634,14 @@
 
       var bound = [this.canvas.width, this.canvas.height, 0, 0];
 
+      var width = this.canvas.width;
+      var height = this.canvas.height;
+
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         if (transparent) {
           if (!sourcePixels[i + 3]) continue;
         } else if (sourcePixels[i + 0] === color[0] && sourcePixels[i + 1] === color[1] && sourcePixels[i + 2] === color[2]) continue;
+
         var x = (i / 4 | 0) % this.canvas.width | 0;
         var y = (i / 4 | 0) / this.canvas.width | 0;
 
@@ -636,12 +652,15 @@
         if (y > bound[3]) bound[3] = y;
       }
 
-      if (bound[2] === 0 || bound[3] === 0) {
 
-      } else {
+      if (bound[2] === 0 && bound[3] === 0) {} else {
         if (changes) {
           changes.left = bound[0];
           changes.top = bound[1];
+
+          changes.bottom = height - bound[3];
+          changes.right = width - bound[2] - bound[0];
+
           changes.width = bound[2] - bound[0];
           changes.height = bound[3] - bound[1];
         }
@@ -652,69 +671,20 @@
       return this;
     },
 
-    resizePixel: function(pixelSize) {
-
-      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      var sourcePixels = sourceData.data;
-      var canvas = document.createElement("canvas");
-      var context = canvas.context = canvas.getContext("2d");
-
-      canvas.width = this.canvas.width * pixelSize | 0;
-      canvas.height = this.canvas.height * pixelSize | 0;
-
-      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        context.fillStyle = 'rgba('+sourcePixels[i + 0]+','+sourcePixels[i + 1]+','+sourcePixels[i + 2]+','+sourcePixels[i + 3]/255+')';
-
-        var x = (i / 4) % this.canvas.width;
-        var y = (i / 4) / this.canvas.width | 0;
-
-        context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-      }
-
-      this.canvas.width = canvas.width;
-      this.canvas.height = canvas.height;
-      this.clear().drawImage(canvas, 0, 0);
-
-      return this;
-
-      /* this very clever method is working only under Chrome */
-
-      var x = 0,
-        y = 0;
-
-      var canvas = document.createElement("canvas");
-      var context = canvas.context = canvas.getContext("2d");
-
-      canvas.width = this.canvas.width * pixelSize | 0;
-      canvas.height = this.canvas.height * pixelSize | 0;
-
-      while (x < this.canvas.width) {
-        y = 0;
-        while (y < this.canvas.height) {
-          context.drawImage(this.canvas, x, y, 1, 1, x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-          y++;
-        }
-        x++;
-      }
-
-      this.canvas = canvas;
-      this.context = context;
-
-      return this;
-    },
-
-
     matchPalette: function(palette) {
       var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
       var rgbPalette = [];
+
       for (var i = 0; i < palette.length; i++) {
-        rgbPalette.push($.color(palette[i]));
+        rgbPalette.push(cq.color(palette[i]));
       }
 
 
       for (var i = 0; i < imgData.data.length; i += 4) {
         var difList = [];
+        if (!imgData.data[i + 3]) continue;
+
         for (var j = 0; j < rgbPalette.length; j++) {
           var rgbVal = rgbPalette[j];
           var rDif = Math.abs(imgData.data[i] - rgbVal[0]),
@@ -724,6 +694,7 @@
         }
 
         var closestMatch = 0;
+
         for (var j = 0; j < palette.length; j++) {
           if (difList[j] < difList[closestMatch]) {
             closestMatch = j;
@@ -734,6 +705,19 @@
         imgData.data[i] = paletteRgb[0];
         imgData.data[i + 1] = paletteRgb[1];
         imgData.data[i + 2] = paletteRgb[2];
+
+        /* dithering */
+        //imgData.data[i + 3] = (255 * Math.random() < imgData.data[i + 3]) ? 255 : 0;
+
+        //imgData.data[i + 3] = imgData.data[i + 3] > 128 ? 255 : 0;
+        /*
+        if (i % 3 === 0) {
+          imgData.data[i] -= cq.limitValue(imgData.data[i] - 50, 0, 255);
+          imgData.data[i + 1] -= cq.limitValue(imgData.data[i + 1] - 50, 0, 255);
+          imgData.data[i + 2] -= cq.limitValue(imgData.data[i + 2] - 50, 0, 255);
+        }
+        */
+
       }
 
       this.context.putImageData(imgData, 0, 0);
@@ -748,7 +732,7 @@
 
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         if (sourcePixels[i + 3]) {
-          var hex = $.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
+          var hex = cq.rgbToHex(sourcePixels[i + 0], sourcePixels[i + 1], sourcePixels[i + 2]);
           if (palette.indexOf(hex) === -1) palette.push(hex);
         }
       }
@@ -756,31 +740,12 @@
       return palette;
     },
 
-    pixelize: function(size) {
-      if (!size) return this;
-      size = size || 4;
+    mapPalette: function() {
 
-      var mozImageSmoothingEnabled = this.context.mozImageSmoothingEnabled;
-      var webkitImageSmoothingEnabled = this.context.webkitImageSmoothingEnabled;
-
-      this.context.mozImageSmoothingEnabled = false;
-      this.context.webkitImageSmoothingEnabled = false;
-
-      var scale = (this.canvas.width / size) / this.canvas.width;
-
-      var temp = cq(this.canvas.width, this.canvas.height);
-
-      temp.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0);
-      this.clear().drawImage(temp.canvas, 0, 0, this.canvas.width * scale | 0, this.canvas.height * scale | 0, 0, 0, this.canvas.width, this.canvas.height);
-
-      this.context.mozImageSmoothingEnabled = mozImageSmoothingEnabled;
-      this.context.webkitImageSmoothingEnabled = webkitImageSmoothingEnabled;
-
-      return this;
     },
 
     colorToMask: function(color, inverted) {
-      color = $.color(color).toArray();
+      color = cq.color(color).toArray();
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
 
@@ -794,35 +759,18 @@
       return mask;
     },
 
-    grayscaleToMask: function(color) {
-      color = $.color(color).toArray();
+    grayscaleToMask: function() {
+
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
 
       var mask = [];
 
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        mask.push((sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3 | 0);
+        mask.push(((sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3) / 255);
       }
 
       return mask;
-    },
-
-    grayscaleToAlpha: function() {
-      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      var sourcePixels = sourceData.data;
-
-      var mask = [];
-
-      for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        sourcePixels[i + 3] = (sourcePixels[i + 0] + sourcePixels[i + 1] + sourcePixels[i + 2]) / 3 | 0;
-
-        sourcePixels[i + 0] = sourcePixels[i + 1] = sourcePixels[i + 2] = 255;
-      }
-
-      this.context.putImageData(sourceData, 0, 0);
-
-      return this;
     },
 
     applyMask: function(mask) {
@@ -833,13 +781,8 @@
 
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         var value = mask[i / 4];
-
-        if (mode === "bool") sourcePixels[i + 3] = 255 * value | 0;
-        else {
-          sourcePixels[i + 3] = value | 0;
-        }
+        sourcePixels[i + 3] = value * 255 | 0;
       }
-
 
       this.context.putImageData(sourceData, 0, 0);
       return this;
@@ -853,8 +796,8 @@
       var maskType = typeof mask[0] === "boolean" ? "bool" : "byte";
       var colorMode = arguments.length === 2 ? "normal" : "gradient";
 
-      var color = $.color(arguments[1]);
-      if (colorMode === "gradient") colorB = $.color(arguments[2]);
+      var color = cq.color(arguments[1]);
+      if (colorMode === "gradient") colorB = cq.color(arguments[2]);
 
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
         var value = mask[i / 4];
@@ -892,26 +835,22 @@
     },
 
     clone: function() {
-      var result = $.createCanvas(this.canvas.width, this.canvas.height);
+
+      // var result = cq.createCanvas(this.canvas);
+
+      var result = cq.pool();
+      result.width = this.width;
+      result.height = this.height;
       result.getContext("2d").drawImage(this.canvas, 0, 0);
-      return $(result);
-    },
 
-    fillStyle: function(fillStyle) {
-      this.context.fillStyle = fillStyle;
-      return this;
-    },
-
-    strokeStyle: function(strokeStyle) {
-      this.context.strokeStyle = strokeStyle;
-      return this;
+      return cq(result);
     },
 
     gradientText: function(text, x, y, maxWidth, gradient) {
 
       var words = text.split(" ");
 
-      var h = this.font().match(/\d+/g)[0] * 2;
+      var h = this.fontHeight() * 2;
 
       var ox = 0;
       var oy = 0;
@@ -951,6 +890,57 @@
       return this;
     },
 
+    outline: function() {
+      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var pixels = data.data;
+
+      var newData = this.createImageData(this.canvas.width, this.canvas.height);
+      var newPixels = newData.data;
+
+      var canvas = this.canvas;
+
+      function check(x, y) {
+
+        if (x < 0) return 0;
+        if (x >= canvas.width) return 0;
+        if (y < 0) return 0;
+        if (y >= canvas.height) return 0;
+
+        var i = (x + y * canvas.width) * 4;
+
+        return pixels[i + 3] > 0;
+
+      }
+
+      for (var x = 0; x < this.canvas.width; x++) {
+        for (var y = 0; y < this.canvas.height; y++) {
+
+          var full = 0;
+          var i = (y * canvas.width + x) * 4;
+
+          if (!pixels[i + 3]) continue;
+
+          full += check(x - 1, y);
+          full += check(x + 1, y);
+          full += check(x, y - 1);
+          full += check(x, y + 1);
+
+          if (full !== 4) {
+
+            newPixels[i] = 255;
+            newPixels[i + 1] = 255;
+            newPixels[i + 2] = 255;
+            newPixels[i + 3] = 255;
+          }
+
+        }
+      }
+
+      this.context.putImageData(newData, 0, 0);
+
+      return this;
+    },
+
     setHsl: function() {
 
       if (arguments.length === 1) {
@@ -965,13 +955,13 @@
         newPixel = [];
 
       for (var i = 0, len = pixels.length; i < len; i += 4) {
-        hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
+        hsl = cq.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
 
-        h = args[0] === null ? hsl[0] : $.limitValue(args[0], 0, 1);
-        s = args[1] === null ? hsl[1] : $.limitValue(args[1], 0, 1);
-        l = args[2] === null ? hsl[2] : $.limitValue(args[2], 0, 1);
+        h = args[0] === false ? hsl[0] : cq.limitValue(args[0], 0, 1);
+        s = args[1] === false ? hsl[1] : cq.limitValue(args[1], 0, 1);
+        l = args[2] === false ? hsl[2] : cq.limitValue(args[2], 0, 1);
 
-        newPixel = $.hslToRgb(h, s, l);
+        newPixel = cq.hslToRgb(h, s, l);
 
         pixels[i + 0] = newPixel[0];
         pixels[i + 1] = newPixel[1];
@@ -997,13 +987,19 @@
         newPixel = [];
 
       for (var i = 0, len = pixels.length; i < len; i += 4) {
-        hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
+        hsl = cq.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
 
-        h = args[0] === null ? hsl[0] : $.wrapValue(hsl[0] + args[0], 0, 1);
-        s = args[1] === null ? hsl[1] : $.limitValue(hsl[1] + args[1], 0, 1);
-        l = args[2] === null ? hsl[2] : $.limitValue(hsl[2] + args[2], 0, 1);
+        if (pixels[i + 0] !== pixels[i + 1] || pixels[i + 1] !== pixels[i + 2]) {
+          h = args[0] === false ? hsl[0] : cq.wrapValue(hsl[0] + args[0], 0, 1);
+          s = args[1] === false ? hsl[1] : cq.limitValue(hsl[1] + args[1], 0, 1);
+        } else {
+          h = hsl[0];
+          s = hsl[1];
+        }
 
-        newPixel = $.hslToRgb(h, s, l);
+        l = args[2] === false ? hsl[2] : cq.limitValue(hsl[2] + args[2], 0, 1);
+
+        newPixel = cq.hslToRgb(h, s, l);
 
         pixels[i + 0] = newPixel[0];
         pixels[i + 1] = newPixel[1];
@@ -1016,32 +1012,20 @@
       return this;
     },
 
-    replaceHue: function(src, dst) {
+    applyColor: function(color) {
 
-      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      var pixels = data.data;
-      var r, g, b, a, h, s, l, hsl = [],
-        newPixel = [];
+      if (COCOONJS) return this;
+      this.save();
 
-      for (var i = 0, len = pixels.length; i < len; i += 4) {
-        hsl = $.rgbToHsl(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
+      this.globalCompositeOperation("source-in");
+      this.clear(color);
 
-        if (Math.abs(hsl[0] - src) < 0.05) h = $.wrapValue(dst, 0, 1);
-        else h = hsl[0];
-
-        newPixel = $.hslToRgb(h, hsl[1], hsl[2]);
-
-        pixels[i + 0] = newPixel[0];
-        pixels[i + 1] = newPixel[1];
-        pixels[i + 2] = newPixel[2];
-      }
-
-      this.context.putImageData(data, 0, 0);
+      this.restore();
 
       return this;
     },
 
-    invert: function(src, dst) {
+    negative: function(src, dst) {
 
       var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var pixels = data.data;
@@ -1076,11 +1060,16 @@
       return this;
     },
 
+    markupText: function(text) {
+
+
+    },
+
     wrappedText: function(text, x, y, maxWidth, newlineCallback) {
 
       var words = text.split(" ");
 
-      var h = this.font().match(/\d+/g)[0] * 2;
+      var lineHeight = this.fontHeight();
 
       var ox = 0;
       var oy = 0;
@@ -1093,21 +1082,24 @@
           var word = words[i] + " ";
           var wordWidth = this.context.measureText(word).width;
 
-          if (ox + wordWidth > maxWidth) {
+          if (ox + wordWidth > maxWidth || words[i] === "\n") {
             lines[++line] = "";
             ox = 0;
           }
+          if (words[i] !== "\n") {
+            lines[line] += word;
 
-          lines[line] += word;
+            ox += wordWidth;
+          }
 
-          ox += wordWidth;
+
         }
       } else {
         var lines = [text];
       }
 
       for (var i = 0; i < lines.length; i++) {
-        var oy = y + i * h * 0.6 | 0;
+        var oy = y + i * lineHeight | 0;
 
         var text = lines[i];
 
@@ -1119,10 +1111,44 @@
       return this;
     },
 
+    fontHeights: {},
+
+    fontHeight: function() {
+      var font = this.font();
+
+      if (!this.fontHeights[font]) {
+        var temp = cq(100, 100);
+        var height = 0;
+        var changes = {};
+        temp.font(font).fillStyle("#fff");
+        temp.textBaseline("bottom").fillText("gM", 25, 100);
+        temp.trim(false, changes);
+        height += changes.bottom;
+
+        var temp = cq(100, 100);
+        var changes = {};
+        temp.font(font).fillStyle("#fff");
+        temp.textBaseline("top").fillText("gM", 25, 0);
+        temp.trim(false, changes);
+        height += changes.top;
+
+        var temp = cq(100, 100);
+        var changes = {};
+        temp.font(font).fillStyle("#fff");
+        temp.textBaseline("alphabetic").fillText("gM", 50, 50);
+        temp.trim(false, changes);
+        height += temp.height;
+
+        this.fontHeights[font] = height;
+      }
+
+      return this.fontHeights[font];
+    },
+
     textBoundaries: function(text, maxWidth) {
       var words = text.split(" ");
 
-      var h = this.font().match(/\d+/g)[0] * 2;
+      var h = this.fontHeight();
 
       var ox = 0;
       var oy = 0;
@@ -1135,14 +1161,15 @@
           var word = words[i] + " ";
           var wordWidth = this.context.measureText(word).width;
 
-          if (ox + wordWidth > maxWidth) {
+          if (ox + wordWidth > maxWidth || words[i] === "\n") {
             lines[++line] = "";
             ox = 0;
           }
 
-          lines[line] += word;
-
-          ox += wordWidth;
+          if (words[i] !== "\n") {
+            lines[line] += word;
+            ox += wordWidth;
+          }
         }
       } else {
         var lines = [text];
@@ -1150,157 +1177,151 @@
       }
 
       return {
-        height: lines.length * h * 0.6 | 0,
-        width: maxWidth
+        height: lines.length * h,
+        width: maxWidth,
+        lines: lines.length,
+        lineHeight: h
       }
     },
 
-    paperBag: function(x, y, width, height, blowX, blowY) {
-      var lx, ly;
-      this.beginPath();
-      this.moveTo(x, y);
-      this.quadraticCurveTo(x + width / 2 | 0, y + height * blowY | 0, x + width, y);
-      this.quadraticCurveTo(x + width - width * blowX | 0, y + height / 2 | 0, x + width, y + height);
-      this.quadraticCurveTo(x + width / 2 | 0, y + height - height * blowY | 0, x, y + height);
-      this.quadraticCurveTo(x + width * blowX | 0, y + height / 2 | 0, x, y);
+    repeatImageRegion: function(image, sx, sy, sw, sh, dx, dy, dw, dh) {
+      this.save();
+      this.rect(dx, dy, dw, dh);
+      this.clip();
+
+      for (var x = 0, len = Math.ceil(dw / sw); x < len; x++) {
+        for (var y = 0, leny = Math.ceil(dh / sh); y < leny; y++) {
+          this.drawImage(image, sx, sy, sw, sh, dx + x * sw, dy + y * sh, sw, sh);
+        }
+      }
+
+      this.restore();
+
+      return this;
+    },
+
+    repeatImage: function(image, x, y, w, h) {
+      // if (!env.details) return this;
+
+      if (arguments.length < 9) {
+        this.repeatImageRegion(image, 0, 0, image.width, image.height, x, y, w, h);
+      } else {
+        this.repeatImageRegion.apply(this, arguments);
+      }
+
+      return this;
     },
 
     borderImage: function(image, x, y, w, h, t, r, b, l, fill) {
 
-      /* top */
-      this.drawImage(image, l, 0, image.width - l - r, t, x + l, y, w - l - r, t);
+      // if (!env.details) return this;
 
-      /* bottom */
-      this.drawImage(image, l, image.height - b, image.width - l - r, b, x + l, y + h - b, w - l - r, b);
+      if (typeof t === "object") {
 
-      /* left */
-      this.drawImage(image, 0, t, l, image.height - b - t, x, y + t, l, h - b - t);
+        var bottomLeft = t.bottomLeft || [0, 0, 0, 0];
+        var bottomRight = t.bottomRight || [0, 0, 0, 0];
+        var topLeft = t.topLeft || [0, 0, 0, 0];
+        var topRight = t.topRight || [0, 0, 0, 0];
 
-      /* right */
-      this.drawImage(image, image.width - r, t, r, image.height - b - t, x + w - r, y + t, r, h - b - t);
+        var clh = bottomLeft[3] + topLeft[3];
+        var crh = bottomRight[3] + topRight[3];
+        var ctw = topLeft[2] + topRight[2];
+        var cbw = bottomLeft[2] + bottomRight[2];
 
-      /* top-left */
-      this.drawImage(image, 0, 0, l, t, x, y, l, t);
+        t.fillPadding = [0, 0, 0, 0];
 
-      /* top-right */
-      this.drawImage(image, image.width - r, 0, r, t, x + w - r, y, r, t);
+        if (t.left) t.fillPadding[0] = t.left[2];
+        if (t.top) t.fillPadding[1] = t.top[3];
+        if (t.right) t.fillPadding[2] = t.right[2];
+        if (t.bottom) t.fillPadding[3] = t.bottom[3];
 
-      /* bottom-right */
-      this.drawImage(image, image.width - r, image.height - b, r, b, x + w - r, y + h - b, r, b);
+        // if (!t.fillPadding) t.fillPadding = [0, 0, 0, 0];
 
-      /* bottom-left */
-      this.drawImage(image, 0, image.height - b, l, b, x, y + h - b, l, b);
-
-      if (fill) {
-        if (typeof fill === "string") {
-          this.fillStyle(fill).fillRect(x + l, y + t, w - l - r, h - t - b);
+        if (t.fill) {
+          this.drawImage(image, t.fill[0], t.fill[1], t.fill[2], t.fill[3], x + t.fillPadding[0], y + t.fillPadding[1], w - t.fillPadding[2] - t.fillPadding[0], h - t.fillPadding[3] - t.fillPadding[1]);
         } else {
-          this.drawImage(image, l, t, image.width - r - l, image.height - b - t, x + l, y + t, w - l - r, h - t - b);
+          // this.fillRect(x + t.fillPadding[0], y + t.fillPadding[1], w - t.fillPadding[2] - t.fillPadding[0], h - t.fillPadding[3] - t.fillPadding[1]);
         }
-      }
-    },
 
-    /* www.html5rocks.com/en/tutorials/canvas/imagefilters/ */
+        if (t.left) this[t.left[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.left[0], t.left[1], t.left[2], t.left[3], x, y + topLeft[3], t.left[2], h - clh);
+        if (t.right) this[t.right[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.right[0], t.right[1], t.right[2], t.right[3], x + w - t.right[2], y + topRight[3], t.right[2], h - crh);
+        if (t.top) this[t.top[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.top[0], t.top[1], t.top[2], t.top[3], x + topLeft[2], y, w - ctw, t.top[3]);
+        if (t.bottom) this[t.bottom[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.bottom[0], t.bottom[1], t.bottom[2], t.bottom[3], x + bottomLeft[2], y + h - t.bottom[3], w - cbw, t.bottom[3]);
 
-    convolve: function(matrix, mix, divide) {
+        if (t.bottomLeft) this.drawImage(image, t.bottomLeft[0], t.bottomLeft[1], t.bottomLeft[2], t.bottomLeft[3], x, y + h - t.bottomLeft[3], t.bottomLeft[2], t.bottomLeft[3]);
+        if (t.topLeft) this.drawImage(image, t.topLeft[0], t.topLeft[1], t.topLeft[2], t.topLeft[3], x, y, t.topLeft[2], t.topLeft[3]);
+        if (t.topRight) this.drawImage(image, t.topRight[0], t.topRight[1], t.topRight[2], t.topRight[3], x + w - t.topRight[2], y, t.topRight[2], t.topRight[3]);
+        if (t.bottomRight) this.drawImage(image, t.bottomRight[0], t.bottomRight[1], t.bottomRight[2], t.bottomRight[3], x + w - t.bottomRight[2], y + h - t.bottomRight[3], t.bottomRight[2], t.bottomRight[3]);
 
-      if (typeof divide === "undefined") divide = 1;
-      if (typeof mix === "undefined") mix = 1;
 
-      var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      var matrixSize = Math.sqrt(matrix.length) + 0.5 | 0;
-      var halfMatrixSize = matrixSize / 2 | 0;
-      var src = sourceData.data;
-      var sw = sourceData.width;
-      var sh = sourceData.height;
-      var w = sw;
-      var h = sh;
-      var output = $.createImageData(this.canvas.width, this.canvas.height);
-      var dst = output.data;
+      } else {
 
-      for (var y = 1; y < h - 1; y++) {
-        for (var x = 1; x < w - 1; x++) {
 
-          var dstOff = (y * w + x) * 4;
-          var r = 0,
-            g = 0,
-            b = 0,
-            a = 0;
+        /* top */
+        if (t > 0 && w - l - r > 0) this.drawImage(image, l, 0, image.width - l - r, t, x + l, y, w - l - r, t);
 
-          for (var cy = 0; cy < matrixSize; cy++) {
-            for (var cx = 0; cx < matrixSize; cx++) {
-              var scy = y + cy - halfMatrixSize;
-              var scx = x + cx - halfMatrixSize;
-              if (scy >= 0 && scy < sh && scx >= 0 && scx < sw) {
-                var srcOff = (scy * sw + scx) * 4;
+        /* bottom */
+        if (b > 0 && w - l - r > 0) this.drawImage(image, l, image.height - b, image.width - l - r, b, x + l, y + h - b, w - l - r, b);
+        //      console.log(x, y, w, h, t, r, b, l);
+        //      console.log(image, 0, t, l, image.height - b - t, x, y + t, l, h - b - t);
+        /* left */
+        if (l > 0 && h - b - t > 0) this.drawImage(image, 0, t, l, image.height - b - t, x, y + t, l, h - b - t);
 
-                var wt = matrix[cy * matrixSize + cx] / divide;
 
-                r += src[srcOff + 0] * wt;
-                g += src[srcOff + 1] * wt;
-                b += src[srcOff + 2] * wt;
-                a += src[srcOff + 3] * wt;
-              }
-            }
+        /* right */
+        if (r > 0 && h - b - t > 0) this.drawImage(image, image.width - r, t, r, image.height - b - t, x + w - r, y + t, r, h - b - t);
+
+        /* top-left */
+        if (l > 0 && t > 0) this.drawImage(image, 0, 0, l, t, x, y, l, t);
+
+        /* top-right */
+        if (r > 0 && t > 0) this.drawImage(image, image.width - r, 0, r, t, x + w - r, y, r, t);
+
+        /* bottom-right */
+        if (r > 0 && b > 0) this.drawImage(image, image.width - r, image.height - b, r, b, x + w - r, y + h - b, r, b);
+
+        /* bottom-left */
+        if (l > 0 && b > 0) this.drawImage(image, 0, image.height - b, l, b, x, y + h - b, l, b);
+
+        if (fill) {
+          if (typeof fill === "string") {
+            this.fillStyle(fill).fillRect(x + l, y + t, w - l - r, h - t - b);
+          } else {
+            if (w - l - r > 0 && h - t - b > 0)
+              this.drawImage(image, l, t, image.width - r - l, image.height - b - t, x + l, y + t, w - l - r, h - t - b);
           }
-
-          dst[dstOff + 0] = $.mix(src[dstOff + 0], r, mix);
-          dst[dstOff + 1] = $.mix(src[dstOff + 1], g, mix);
-          dst[dstOff + 2] = $.mix(src[dstOff + 2], b, mix);
-          dst[dstOff + 3] = a;
-          // src[dstOff + 3];
         }
       }
     },
 
-    blur: function(mix) {
-      return this.convolve([1, 1, 1, 1, 1, 1, 1, 1, 1], mix, 9);
-    },
+    createImageData: function(width, height) {
+      if (false && this.context.createImageData) {
+        return this.context.createImageData.apply(this.context, arguments);
+      } else {
+        if (!this.emptyCanvas) {
+          this.emptyCanvas = cq.createCanvas(width, height);
+          this.emptyCanvasContext = this.emptyCanvas.getContext("2d");
+        }
 
-    gaussianBlur: function(mix) {
-      return this.convolve([0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067, 0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292, 0.00019117, 0.00655965, 0.05472157, 0.11098164, 0.05472157, 0.00655965, 0.00019117, 0.00038771, 0.01330373, 0.11098164, 0.22508352, 0.11098164, 0.01330373, 0.00038771, 0.00019117, 0.00655965, 0.05472157, 0.11098164, 0.05472157, 0.00655965, 0.00019117, 0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292, 0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067], mix, 1);
-    },
-
-    sharpen: function(mix) {
-      return this.convolve([0, -1, 0, -1, 5, -1, 0, -1, 0], mix);
-    },
-
-    threshold: function(threshold) {
-      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      var pixels = data.data;
-      var r, g, b;
-
-      for (var i = 0; i < pixels.length; i += 4) {
-        var r = pixels[i];
-        var g = pixels[i + 1];
-        var b = pixels[i + 2];
-        var v = (0.2126 * r + 0.7152 * g + 0.0722 * b >= threshold) ? 255 : 0;
-        pixels[i] = pixels[i + 1] = pixels[i + 2] = v
+        this.emptyCanvas.width = width;
+        this.emptyCanvas.height = height;
+        return this.emptyCanvasContext.getImageData(0, 0, width, height);
       }
-
-      this.context.putImageData(data, 0, 0);
-
-      return this;
     },
 
-    sepia: function() {
-      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      var pixels = data.data;
-      var r, g, b;
-
-      for (var i = 0; i < pixels.length; i += 4) {
-        pixels[i + 0] = $.limitValue((pixels[i + 0] * .393) + (pixels[i + 1] * .769) + (pixels[i + 2] * .189), 0, 255);
-        pixels[i + 1] = $.limitValue((pixels[i + 0] * .349) + (pixels[i + 1] * .686) + (pixels[i + 2] * .168), 0, 255);
-        pixels[i + 2] = $.limitValue((pixels[i + 0] * .272) + (pixels[i + 1] * .534) + (pixels[i + 2] * .131), 0, 255);
-      }
-
-      this.context.putImageData(data, 0, 0);
-
-      return this;
+    setLineDash: function(dash) {
+      if (this.context.setLineDash) {
+        this.context.setLineDash(dash);
+        return this;
+      } else return this;
     },
 
     measureText: function() {
       return this.context.measureText.apply(this.context, arguments);
+    },
+
+    getLineDash: function() {
+      return this.context.getLineDash();
     },
 
     createRadialGradient: function() {
@@ -1311,280 +1332,111 @@
       return this.context.createLinearGradient.apply(this.context, arguments);
     },
 
+    createPattern: function() {
+      return this.context.createPattern.apply(this.context, arguments);
+    },
+
     getImageData: function() {
       return this.context.getImageData.apply(this.context, arguments);
     },
 
-    /* framework */
-
-    framework: function(args, context) {
-      if (context) {
-        this.tempContext = context === true ? args : context;
-      }
-
-      for (var name in args) {
-        if (this[name]) this[name](args[name], undefined, undefined);
-      }
-
-      this.tempContext = null;
-
-      return this;
+    get width() {
+      return this.canvas.width;
     },
 
-    onStep: function(callback, interval) {
-      var self = this.tempContext || this;
-      var lastTick = Date.now();
-      interval = interval || 25;
-
-      this.timer = setInterval(function() {
-        var delta = Date.now() - lastTick;
-        lastTick = Date.now();
-        callback.call(self, delta, lastTick);
-      }, interval);
-
-      return this;
+    get height() {
+      return this.canvas.height;
     },
 
-    onRender: function(callback) {
-      var self = this.tempContext || this;
-
-      var lastTick = Date.now();
-
-      function step() {
-        var delta = Date.now() - lastTick;
-        lastTick = Date.now();
-        requestAnimationFrame(step)
-        callback.call(self, delta, lastTick);
-      };
-
-      requestAnimationFrame(step);
-
-      return this;
+    set width(w) {
+      this.canvas.width = w;
+      this.update();
+      return this.canvas.width;
     },
 
-    onMouseMove: function(callback) {
-      var self = this.tempContext || this;
-
-      if (!MOBILE) this.canvas.addEventListener("mousemove", function(e) {
-        var pos = $.mousePosition(e);
-        callback.call(self, pos.x, pos.y);
-      });
-
-      else this.canvas.addEventListener("touchmove", function(e) {
-        e.preventDefault();
-        var pos = $.mousePosition(e);
-        callback.call(self, pos.x, pos.y);
-      });
-
-      return this;
-    },
-
-    onMouseDown: function(callback) {
-      var self = this.tempContext || this;
-
-      if (!MOBILE) {
-        this.canvas.addEventListener("mousedown", function(e) {
-          var pos = $.mousePosition(e);
-          callback.call(self, pos.x, pos.y, e.button);
-        });
-      } else {
-        this.canvas.addEventListener("touchstart", function(e) {
-          var pos = $.mousePosition(e);
-          callback.call(self, pos.x, pos.y, e.button);
-        });
-      }
-
-      return this;
-    },
-
-    onMouseUp: function(callback) {
-      var self = this.tempContext || this;
-
-      if (!MOBILE) {
-        this.canvas.addEventListener("mouseup", function(e) {
-          var pos = $.mousePosition(e);
-          callback.call(self, pos.x, pos.y, e.button);
-        });
-      } else {
-        this.canvas.addEventListener("touchend", function(e) {
-          var pos = $.mousePosition(e);
-          callback.call(self, pos.x, pos.y, e.button);
-        });
-      }
-
-      return this;
-    },
+    set height(h) {
+      this.canvas.height = h;
+      this.update();
+      return this.canvas.height;
+    }
 
 
-    onSwipe: function(callback, threshold, timeout) {
-      var self = this.tempContext || this;
+  };
 
-      var swipeThr = threshold || 35;
-      var swipeTim = timeout || 350;
+  /* extend Layer with drawing context methods */
 
-      var swipeSP = 0;
-      var swipeST = 0;
-      var swipeEP = 0;
-      var swipeET = 0;
+  var methods = ["arc", "arcTo", "beginPath", "bezierCurveTo", "clearRect", "clip", "closePath", "createLinearGradient", "createRadialGradient", "createPattern", "drawFocusRing", "drawImage", "fill", "fillRect", "fillText", "getImageData", "isPointInPath", "lineTo", "measureText", "moveTo", "putImageData", "quadraticCurveTo", "rect", "restore", "rotate", "save", "scale", "setTransform", "stroke", "strokeRect", "strokeText", "transform", "translate", "setLineDash"];
 
-      function swipeStart(e) {
-        e.preventDefault();
-        swipeSP = $.mousePosition(e);
-        swipeST = Date.now();
-      }
+  for (var i = 0; i < methods.length; i++) {
+    var name = methods[i];
 
-      function swipeUpdate(e) {
-        e.preventDefault();
-        swipeEP = $.mousePosition(e);
-        swipeET = Date.now();
-      }
+    // this.debug = true;
 
-      function swipeEnd(e) {
-        e.preventDefault();
+    if (cq.Layer.prototype[name]) continue;
 
-        var xDif = (swipeSP.x - swipeEP.x);
-        var yDif = (swipeSP.y - swipeEP.y);
-        var x = (xDif * xDif);
-        var y = (yDif * yDif);
-        var swipeDist = Math.sqrt(x + y);
-        var swipeTime = (swipeET - swipeST);
-        var swipeDir = undefined;
+    if (!this.debug) {
+      // if (!cq.Layer.prototype[name]) cq.Layer.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
 
-        if (swipeDist > swipeThr && swipeTime < swipeTim) {
-          if (Math.abs(xDif) > Math.abs(yDif)) {
-            if (xDif > 0) {
-              swipeDir = "left";
-            } else {
-              swipeDir = "right";
-            }
-          } else {
-            if (yDif > 0) {
-              swipeDir = "up";
-            } else {
-              swipeDir = "down";
-            }
-          }
-          callback.call(self, swipeDir);
+      var self = this;
+
+      (function(name) {
+
+        cq.Layer.prototype[name] = function() {
+          this.context[name].apply(this.context, arguments);
+          return this;
         }
-      }
 
-      this.canvas.addEventListener("touchstart", function(e) {
-        swipeStart(e);
-      });
-      this.canvas.addEventListener("touchmove", function(e) {
-        swipeUpdate(e);
-      });
-      this.canvas.addEventListener("touchend", function(e) {
-        swipeEnd(e);
-      });
-      this.canvas.addEventListener("mousedown", function(e) {
-        swipeStart(e);
-      });
-      this.canvas.addEventListener("mousemove", function(e) {
-        swipeUpdate(e);
-      });
-      this.canvas.addEventListener("mouseup", function(e) {
-        swipeEnd(e);
-      });
+      })(name);
 
-      return this;
-    },
+    } else {
 
-    onKeyDown: function(callback) {
-      var self = this.tempContext || this;
+      var self = this;
 
-      document.addEventListener("keydown", function(e) {
-        if (e.which >= 48 && e.which <= 90) var keyName = String.fromCharCode(e.which).toLowerCase();
-        else var keyName = $.keycodes[e.which];
-        callback.call(self, keyName);
-      });
-      return this;
-    },
+      (function(name) {
 
-    onKeyUp: function(callback) {
-      var self = this.tempContext || this;
+        cq.Layer.prototype[name] = function() {
+          try {
+            this.context[name].apply(this.context, arguments);
+            return this;
+          } catch (e) {
+            var err = new Error();
+            console.log(err.stack);
+            throw (e + err.stack);
 
-      document.addEventListener("keyup", function(e) {
-        if (e.which >= 48 && e.which <= 90) var keyName = String.fromCharCode(e.which).toLowerCase();
-        else var keyName = $.keycodes[e.which];
-        callback.call(self, keyName);
-      });
-      return this;
-    },
+            console.log(e, name, arguments);
+          }
+        }
 
+      })(name);
 
-    onResize: function(callback) {
-      var self = this.tempContext || this;
-
-      window.addEventListener("resize", function() {
-        callback.call(self, window.innerWidth, window.innerHeight);
-      });
-
-      callback.call(self, window.innerWidth, window.innerHeight);
-
-      return this;
-    },
-
-    onDropImage: function(callback) {
-      var self = this.tempContext || this;
-
-      document.addEventListener('drop', function(e) {
-        e.stopPropagation();
-        e.preventDefault();
-
-        var file = e.dataTransfer.files[0];
-
-        if (!(/image/i).test(file.type)) return false;
-        var reader = new FileReader();
-
-        reader.onload = function(e) {
-          var image = new Image;
-
-          image.onload = function() {
-            callback.call(self, this);
-          };
-
-          image.src = e.target.result;
-        };
-
-        reader.readAsDataURL(file);
-
-      });
-
-      document.addEventListener("dragover", function(e) {
-        e.preventDefault();
-      });
-
-      return this;
     }
 
   };
 
-  /* extend wrapper with drawing context methods */
-
-  var methods = ["arc", "arcTo", "beginPath", "bezierCurveTo", "clearRect", "clip", "closePath", "createImageData", "createLinearGradient", "createRadialGradient", "createPattern", "drawFocusRing", "drawImage", "fill", "fillRect", "fillText", "getImageData", "isPointInPath", "lineTo", "measureText", "moveTo", "putImageData", "quadraticCurveTo", "rect", "restore", "rotate", "save", "scale", "setTransform", "stroke", "strokeRect", "strokeText", "transform", "translate"];
-  for (var i = 0; i < methods.length; i++) {
-    var name = methods[i];
-    if (!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
-  };
-
   /* create setters and getters */
 
-  var properties = ["canvas", "fillStyle", "font", "globalAlpha", "globalCompositeOperation", "lineCap", "lineJoin", "lineWidth", "miterLimit", "shadowOffsetX", "shadowOffsetY", "shadowBlur", "shadowColor", "strokeStyle", "textAlign", "textBaseline"];
+  var properties = ["canvas", "fillStyle", "font", "globalAlpha", "globalCompositeOperation", "lineCap", "lineJoin", "lineWidth", "miterLimit", "shadowOffsetX", "shadowOffsetY", "shadowBlur", "shadowColor", "strokeStyle", "textAlign", "textBaseline", "lineDashOffset"];
+
   for (var i = 0; i < properties.length; i++) {
     var name = properties[i];
-    if (!$.Wrapper.prototype[name]) $.Wrapper.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
+    if (!cq.Layer.prototype[name]) cq.Layer.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
   };
 
   /* color */
 
-  $.Color = function(data, type) {
-    if (arguments.length) this.parse(data);
+  cq.Color = function(data, type) {
+
+    if (arguments.length) this.parse(data, type);
   }
 
-  $.Color.prototype = {
+  cq.Color.prototype = {
+
+    toString: function() {
+      return this.toRgb();
+    },
+
     parse: function(args, type) {
-      if (args[0] instanceof $.Color) {
+      if (args[0] instanceof cq.Color) {
         this[0] = args[0][0];
         this[1] = args[0][1];
         this[2] = args[0][2];
@@ -1596,7 +1448,7 @@
         var match = null;
 
         if (args[0] === "#") {
-          var rgb = $.hexToRgb(args);
+          var rgb = cq.hexToRgb(args);
           this[0] = rgb[0];
           this[1] = rgb[1];
           this[2] = rgb[2];
@@ -1640,9 +1492,18 @@
       }
     },
 
+    a: function(a) {
+      return this.alpha(a);
+    },
+
+    alpha: function(a) {
+      this[3] = a;
+      return this;
+    },
+
     fromHsl: function() {
       var components = arguments[0] instanceof Array ? arguments[0] : arguments;
-      var color = $.hslToRgb(components[0], components[1], components[2]);
+      var color = cq.hslToRgb(components[0], components[1], components[2]);
 
       this[0] = color[0];
       this[1] = color[1];
@@ -1652,7 +1513,7 @@
 
     fromHsv: function() {
       var components = arguments[0] instanceof Array ? arguments[0] : arguments;
-      var color = $.hsvToRgb(components[0], components[1], components[2]);
+      var color = cq.hsvToRgb(components[0], components[1], components[2]);
 
       this[0] = color[0];
       this[1] = color[1];
@@ -1673,31 +1534,37 @@
     },
 
     toHex: function() {
-      return $.rgbToHex(this[0], this[1], this[2]);
+      return cq.rgbToHex(this[0], this[1], this[2]);
     },
 
     toHsl: function() {
-      var c = $.rgbToHsl(this[0], this[1], this[2]);
+      var c = cq.rgbToHsl(this[0], this[1], this[2]);
       c[3] = this[3];
       return c;
     },
 
     toHsv: function() {
-      var c = $.rgbToHsv(this[0], this[1], this[2]);
+      var c = cq.rgbToHsv(this[0], this[1], this[2]);
       c[3] = this[3];
       return c;
     },
 
     gradient: function(target, steps) {
-      var targetColor = $.color(target);
+      var targetColor = cq.color(target);
     },
 
     shiftHsl: function() {
       var hsl = this.toHsl();
 
-      var h = arguments[0] === null ? hsl[0] : $.wrapValue(hsl[0] + arguments[0], 0, 1);
-      var s = arguments[1] === null ? hsl[1] : $.limitValue(hsl[1] + arguments[1], 0, 1);
-      var l = arguments[2] === null ? hsl[2] : $.limitValue(hsl[2] + arguments[2], 0, 1);
+      if (this[0] !== this[1] || this[1] !== this[2]) {
+        var h = arguments[0] === false ? hsl[0] : cq.wrapValue(hsl[0] + arguments[0], 0, 1);
+        var s = arguments[1] === false ? hsl[1] : cq.limitValue(hsl[1] + arguments[1], 0, 1);
+      } else {
+        var h = hsl[0];
+        var s = hsl[1];
+      }
+
+      var l = arguments[2] === false ? hsl[2] : cq.limitValue(hsl[2] + arguments[2], 0, 1);
 
       this.fromHsl(h, s, l);
 
@@ -1707,9 +1574,9 @@
     setHsl: function() {
       var hsl = this.toHsl();
 
-      var h = arguments[0] === null ? hsl[0] : $.limitValue(arguments[0], 0, 1);
-      var s = arguments[1] === null ? hsl[1] : $.limitValue(arguments[1], 0, 1);
-      var l = arguments[2] === null ? hsl[2] : $.limitValue(arguments[2], 0, 1);
+      var h = arguments[0] === false ? hsl[0] : cq.limitValue(arguments[0], 0, 1);
+      var s = arguments[1] === false ? hsl[1] : cq.limitValue(arguments[1], 0, 1);
+      var l = arguments[2] === false ? hsl[2] : cq.limitValue(arguments[2], 0, 1);
 
       this.fromHsl(h, s, l);
 
@@ -1718,12 +1585,24 @@
 
   };
 
-  window["cq"] = window["CanvasQuery"] = $;
+  if (NODEJS)
+    global["cq"] = global["CanvasQuery"] = cq;
+  else
+    window["cq"] = window["CanvasQuery"] = cq;
 
-  if (typeof define === "function" && define.amd) {
-    define([], function() {
-      return $;
-    });
+
+  /* nodejs specific stuff */
+
+  cq.Layer.prototype.saveAsPNG = function(path) {
+    fs.writeFileSync(path, this.canvas.toBuffer());
   }
 
-})(window);
+  cq.loadFromFile = function(path) {
+    var buffer = fs.readFileSync(path);
+    var img = new Image;
+    img.src = buffer;
+    return cq(img);
+  }
+
+
+})();
