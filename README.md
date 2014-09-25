@@ -2,7 +2,7 @@
 
 ## Canvas Query
 
-*1.0* <a href="script/canvasquery.js">canvasquery.js</a> - an extended canvas for gamedevelopers
+<a href="http://canvasquery.com/script/canvasquery.js">canvasquery.js</a> - an extended canvas for gamedevelopers
 
 
 ```javascript
@@ -13,7 +13,7 @@ var layer = cq()
 
 ## Playground
 
-*1.0* <a href="script/playground.js">playground.js</a> - out of box - mouse, keyboard, scaling, gameloop and a layer to draw on.
+<a href="http://canvasquery.com/script/playground.js">playground.js</a> - out of box - mouse, keyboard, scaling, gameloop and a layer to draw on.
 
 ```javascript
 playground({ 
@@ -34,7 +34,7 @@ playground({
 });
 ```
 
-*ZIP* <a href="canvasquery-bootstrap.zip">bootstrap.zip</a> - download template using canvasquery + playground.
+*ZIP* <a href="http://canvasquery.com/canvasquery-bootstrap.zip">bootstrap.zip</a> - download template using canvasquery + playground.
 
 ## Works with:
 
