@@ -120,10 +120,6 @@ function Playground(args) {
       self.screen.restore();
     }
 
-    this.on("event", function() {
-      console.log("ASDF");
-    })
-
   };
 
   requestAnimationFrame(step);
