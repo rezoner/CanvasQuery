@@ -4,7 +4,6 @@
 
 <a href="http://canvasquery.com/script/canvasquery.js">canvasquery.js</a> - an extended canvas for gamedevelopers
 
-
 ```javascript
 var layer = cq()  
   .fillStyle("#ff0000")
