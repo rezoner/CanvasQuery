@@ -1,4 +1,4 @@
-<p class="center"><img src="http://canvasquery.com/images/scheme-transparent.png"></p>
+<p style="text-align:center"><img src="http://canvasquery.com/images/scheme-transparent-guthub.png"></p>
 
 ## Canvas Query
 
