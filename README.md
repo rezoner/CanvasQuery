@@ -45,11 +45,5 @@ playground({
 
 ## These are games using CanvasQuery
 
-<a href="http://qbqbqb.rezoner.net/play/"><img src="<?=cms::url("showcase/qbqbqb.png")?>"></a>
-<a href="http://www.rockpapershotgun.com/2014/09/04/jameson-the-pilot-elite-space-game/"><img src="<?=cms::url("showcase/jamesonthepilot.png")?>"></a>
-<a href="http://hotlinetrail.rezoner.net/"><img src="<?=cms::url("showcase/hotlinetrail.png")?>"></a>
-<a href="http://gamejolt.com/games/puzzle/limbs-repair-station/23780/"><img src="<?=cms::url("showcase/limbs.png")?>"></a>
-<a href="http://rezoner.net/labs/potatolagoon/next/"><img src="<?=cms::url("showcase/potatolagoon.png")?>"></a>
-<a href="http://chirp.rezoner.net"><img src="<?=cms::url("showcase/chirp.png")?>"></a>
-<img src="<?=cms::url("showcase/anitroubles.png")?>">
-<img src="<?=cms::url("showcase/superrotoshooter.png")?>">
+<a href="http://qbqbqb.rezoner.net/play/"><img src="<img src="http://canvasquery.com/showcase/qbqbqb.png"></a>
+<a href="http://www.rockpapershotgun.com/2014/09/04/jameson-the-pilot-elite-space-game/"><img src="<img src="http://canvasquery.com/showcase/jameson.png"></a>
