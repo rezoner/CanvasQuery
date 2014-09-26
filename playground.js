@@ -9,6 +9,8 @@ function playground(args) {
   return new Playground(args);
 };
 
+/* utitlities */
+
 playground.extend = function() {
   for (var i = 1; i < arguments.length; i++) {
     for (var j in arguments[i]) {
@@ -18,6 +20,31 @@ playground.extend = function() {
 
   return arguments[0];
 };
+
+playground.throttle = function(fn, threshold) {
+  threshold || (threshold = 250);
+  var last,
+    deferTimer;
+  return function() {
+    var context = this;
+
+    var now = +new Date,
+      args = arguments;
+    if (last && now < last + threshold) {
+      // hold on to it
+      clearTimeout(deferTimer);
+      deferTimer = setTimeout(function() {
+        last = now;
+        fn.apply(context, args);
+      }, threshold);
+    } else {
+      last = now;
+      fn.apply(context, args);
+    }
+  };
+};
+
+/* constructor */
 
 function Playground(args) {
 
@@ -65,6 +92,7 @@ function Playground(args) {
   if (this.mousemove) this.mouse.on("mousemove", this.mousemove.bind(this));
   if (this.mousedown) this.mouse.on("mousedown", this.mousedown.bind(this));
   if (this.mouseup) this.mouse.on("mouseup", this.mouseup.bind(this));
+  if (this.mousewheel) this.mouse.on("mousewheel", this.mousewheel.bind(this));
 
   /* touch */
 
@@ -477,6 +505,7 @@ playground.Mouse = function(element) {
   this.mousemoveEvent = {};
   this.mousedownEvent = {};
   this.mouseupEvent = {};
+  this.mousewheelEvent = {};
 
   this.x = 0;
   this.y = 0;
@@ -488,6 +517,8 @@ playground.Mouse = function(element) {
   element.addEventListener("mousemove", this.mousemove.bind(this));
   element.addEventListener("mousedown", this.mousedown.bind(this));
   element.addEventListener("mouseup", this.mouseup.bind(this));
+
+  this.enableMousewheel();
 };
 
 playground.Mouse.prototype = {
@@ -545,6 +576,74 @@ playground.Mouse.prototype = {
     this[e.button] = false;
 
     this.trigger("mouseup", this.mouseupEvent);
+  },
+
+  mousewheel: function(e) {
+    this.mouseupEvent.x = this.mousemoveEvent.x;
+    this.mouseupEvent.y = this.mousemoveEvent.x;
+    this.mouseupEvent.button = ["none", "left", "middle", "right"][e.button];
+    this.mouseupEvent.original = e;
+
+    this[e.button] = false;
+
+    this.trigger("mousewheel", this.mousewheelEvent);
+  },
+
+
+  enableMousewheel: function() {
+
+    var eventNames = 'onwheel' in document || document.documentMode >= 9 ? ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'];
+    var callback = this.mousewheel.bind(this);
+    var self = this;
+
+    for (var i = eventNames.length; i;) {
+
+      self.element.addEventListener(eventNames[--i], playground.throttle(function(event) {
+
+        var orgEvent = event || window.event,
+          args = [].slice.call(arguments, 1),
+          delta = 0,
+          deltaX = 0,
+          deltaY = 0,
+          absDelta = 0,
+          absDeltaXY = 0,
+          fn;
+        event.type = "mousewheel";
+
+        // Old school scrollwheel delta
+        if (orgEvent.wheelDelta) {
+          delta = orgEvent.wheelDelta;
+        }
+
+        if (orgEvent.detail) {
+          delta = orgEvent.detail * -1;
+        }
+
+        // New school wheel delta (wheel event)
+        if (orgEvent.deltaY) {
+          deltaY = orgEvent.deltaY * -1;
+          delta = deltaY;
+        }
+
+        // Webkit
+        if (orgEvent.wheelDeltaY !== undefined) {
+          deltaY = orgEvent.wheelDeltaY;
+        }
+
+        var result = delta ? delta : deltaY;
+
+        self.mousewheelEvent.x = self.mousemoveEvent.x;
+        self.mousewheelEvent.y = self.mousemoveEvent.y;
+        self.mousewheelEvent.delta = result / Math.abs(result);
+        self.mousewheelEvent.original = orgEvent;
+
+        callback(self.mousewheelEvent);
+
+        event.preventDefault();
+
+      }, 40), false);
+    }
+
   }
 
 };
