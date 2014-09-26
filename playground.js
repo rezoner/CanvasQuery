@@ -48,19 +48,24 @@ playground.throttle = function(fn, threshold) {
 
 function Playground(args) {
 
-  this.smoothing = true;
+  /* defaults */
 
-  for (var key in args) this[key] = args[key];
+  playground.extend(this, {
+    smoothing: 1,
+    scale: 1
+  }, args);
+
 
   if (!this.width || !this.height) this.fitToContainer = true;
 
-  this.scale = 1;
-
   if (!this.container) this.container = document.body;
-
   if (this.container !== document.body) this.customContainer = true;
 
-  /* canvas */
+  /* state */
+
+  this.state = {};
+
+  /* layer */
 
   if (!args.layer) {
     cq.smoothing = this.smoothing;
@@ -85,31 +90,26 @@ function Playground(args) {
 
   var canvas = this.screen.canvas;
 
+  /* events */
+
+  this.eventsHandler = this.eventsHandler.bind(this);
+
   /* mouse */
 
   this.mouse = new playground.Mouse(canvas);
-
-  if (this.mousemove) this.mouse.on("mousemove", this.mousemove.bind(this));
-  if (this.mousedown) this.mouse.on("mousedown", this.mousedown.bind(this));
-  if (this.mouseup) this.mouse.on("mouseup", this.mouseup.bind(this));
-  if (this.mousewheel) this.mouse.on("mousewheel", this.mousewheel.bind(this));
+  this.mouse.on("event", this.eventsHandler);
 
   /* touch */
 
   this.touch = new playground.Touch(canvas);
-
-  if (this.touchmove) this.touch.on("touchmove", this.touchmove.bind(this));
-  if (this.touchstart) this.touch.on("touchstart", this.touchstart.bind(this));
-  if (this.touchend) this.touch.on("touchend", this.touchend.bind(this));
+  this.touch.on("event", this.eventsHandler);
 
   /* keyboard */
 
   this.keyboard = new playground.Keyboard();
 
   this.keyboard.preventDefault = this.preventKeyboardDefault;
-
-  if (this.keydown) this.keyboard.on("keydown", this.keydown.bind(this));
-  if (this.keyup) this.keyboard.on("keyup", this.keyup.bind(this));
+  this.keyboard.on("event", this.eventsHandler);
 
   /* window resize */
 
@@ -133,8 +133,13 @@ function Playground(args) {
     if (delta > 1000) return;
 
     if (self.loader.count <= 0) {
+
       if (self.step) self.step(delta / 1000);
       if (self.render) self.render(delta / 1000);
+
+      if (self.state.step) self.state.step(delta / 1000);
+      if (self.state.render) self.state.render(delta / 1000);
+
     } else {
       self.renderLoader(delta / 1000);
     }
@@ -155,6 +160,7 @@ function Playground(args) {
   /* assets */
 
   /* default audio format */
+
   var canPlayOgg = (new Audio).canPlayType('audio/ogg; codecs="vorbis"');
   var canPlayMp3 = (new Audio).canPlayType("audio/mp3");
 
@@ -180,6 +186,23 @@ function Playground(args) {
 };
 
 Playground.prototype = {
+
+  setState: function(state) {
+    state.app = this;
+    
+    if (this.state && this.state.leave) this.state.leave();
+
+    this.state = state;
+
+    if (this.state && this.state.enter) this.state.enter();
+  },
+
+  eventsHandler: function(event, data) {
+
+    if (this[event]) this[event](data);
+    if (this.state[event]) this.state[event](data);
+
+  },
 
   resizeHandler: function() {
 
@@ -237,7 +260,7 @@ Playground.prototype = {
 
     this.screen.clear("#000");
 
-    if (this.resize) this.resize();
+    this.eventsHandler("resize");
 
     this.mouse.update();
     this.touch.update();
@@ -257,7 +280,6 @@ Playground.prototype = {
   },
 
 
-  /* foo 
   /* imaginary timeout to delay loading */
 
   loadFoo: function(timeout) {
