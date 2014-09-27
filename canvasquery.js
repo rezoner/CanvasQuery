@@ -1294,6 +1294,33 @@
       }
     },
 
+    setPixel: function(color, x, y) {
+
+      /* fillRect is slow! */
+
+      return this.fillStyle(color).fillRect(x, y, 1, 1);
+
+      /* this is how it should work - but it does not */
+
+      color = cq.color(color);
+      
+      var pixel = this.createImageData(1, 1);
+
+      pixel.data[0] = color[0];
+      pixel.data[1] = color[1];
+      pixel.data[2] = color[2];
+      pixel.data[3] = 1.0;
+
+      this.putImageData(pixel, x, y);
+
+      return this;
+    },
+
+    getPixel: function(x, y) {
+      var pixel = this.context.getImageData(x, y, 1, 1).data;
+      return cq.color([pixel[0], pixel[1], pixel[2], pixel[3]]);
+    },
+
     createImageData: function(width, height) {
       if (false && this.context.createImageData) {
         return this.context.createImageData.apply(this.context, arguments);

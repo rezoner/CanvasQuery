@@ -52,7 +52,9 @@ function Playground(args) {
 
   playground.extend(this, {
     smoothing: 1,
-    scale: 1
+    scale: 1,
+    preventKeyboardDefault: true,
+    preventContextMenu: true
   }, args);
 
 
@@ -99,6 +101,8 @@ function Playground(args) {
   this.mouse = new playground.Mouse(canvas);
   this.mouse.on("event", this.eventsHandler);
 
+  this.mouse.preventContextMenu = this.preventContextMenu;
+
   /* touch */
 
   this.touch = new playground.Touch(canvas);
@@ -110,6 +114,11 @@ function Playground(args) {
 
   this.keyboard.preventDefault = this.preventKeyboardDefault;
   this.keyboard.on("event", this.eventsHandler);
+
+  /* gamepads */
+
+  this.gamepads = new playground.Gamepads();
+  this.gamepads.on("event", this.eventsHandler);
 
   /* window resize */
 
@@ -153,6 +162,8 @@ function Playground(args) {
       self.screen.restore();
     }
 
+    self.gamepads.step();
+
   };
 
   requestAnimationFrame(step);
@@ -189,7 +200,7 @@ Playground.prototype = {
 
   setState: function(state) {
     state.app = this;
-    
+
     if (this.state && this.state.leave) this.state.leave();
 
     this.state = state;
@@ -425,9 +436,7 @@ Playground.prototype = {
       var layer = cq(32, 32);
       layer.font("10px " + name).fillText(16, 16, 16);
       layer.trim();
-
-      console.log(width, height, layer.width, layer.height)
-
+      
       if (layer.width !== width || layer.height !== height) {
         self.loader.ready("font " + name);
       } else {
@@ -541,6 +550,11 @@ playground.Mouse = function(element) {
   element.addEventListener("mouseup", this.mouseup.bind(this));
 
   this.enableMousewheel();
+
+  document.addEventListener("contextmenu", function(e) {
+    if (self.preventContextMenu) e.preventDefault();
+  });
+
 };
 
 playground.Mouse.prototype = {
@@ -871,7 +885,151 @@ playground.Keyboard.prototype = {
 
 playground.extend(playground.Keyboard.prototype, playground.Events.prototype);
 
+/* Gamepad */
 
+playground.Gamepads = function() {
+
+  playground.Events.call(this);
+
+  this.getGamepads = navigator.getGamepads || navigator.webkitGetGamepads;
+
+  this.gamepadmoveEvent = {};
+  this.gamepaddownEvent = {};
+  this.gamepadupEvent = {};
+
+  this.gamepads = {};
+
+};
+
+playground.Gamepads.prototype = {
+
+  buttons: {
+    0: "1",
+    1: "2",
+    2: "3",
+    3: "4",
+    4: "l1",
+    5: "r1",
+    6: "l2",
+    7: "r2",
+    8: "select",
+    9: "start",
+    12: "up",
+    13: "down",
+    14: "left",
+    15: "right"
+  },
+
+  zeroState: function() {
+    var buttons = [];
+
+    for (var i = 0; i <= 15; i++) {
+      buttons.push({
+        pressed: false,
+        value: 0
+      });
+    }
+
+    return {
+      axes: [],
+      buttons: buttons
+    };
+  },
+
+  createGamepad: function() {
+    var result = {
+      buttons: {},
+      sticks: [{
+        x: 0,
+        y: 0
+      }, {
+        x: 0,
+        y: 0
+      }]
+    };
+
+
+    for (var i = 0; i < 16; i++) {
+      var key = this.buttons[i];
+      result.buttons[key] = false;
+    }
+
+    return result;
+  },
+
+  step: function() {
+    if (!navigator.getGamepads) return;
+
+    var gamepads = navigator.getGamepads();
+
+    for (var i = 0; i < gamepads.length; i++) {
+      var current = gamepads[i];
+
+      if (!current) continue;
+
+      if (!this[i]) this[i] = this.createGamepad();
+
+      /* have to concat the current.buttons because the are read-only */
+
+      var buttons = [].concat(current.buttons);
+
+      /* hack for missing  dpads */
+
+      for (var h = 12; h <= 15; h++) {
+        if(!buttons[h]) buttons[h] = {
+          pressed: false,
+          value: 0
+        };
+      }
+
+      var previous = this[i];
+
+      /* axes (sticks) to buttons */
+
+      if (current.axes[0] < 0) buttons[14].pressed = true;
+      if (current.axes[0] > 0) buttons[15].pressed = true;
+      if (current.axes[1] < 0) buttons[12].pressed = true;
+      if (current.axes[1] > 0) buttons[13].pressed = true;
+
+      previous.sticks[0].x = current.axes[0].value;
+      previous.sticks[0].y = current.axes[1].value;
+      previous.sticks[1].x = current.axes[2].value;
+      previous.sticks[1].y = current.axes[3].value;
+
+      /* check buttons changes */
+
+      for (var j = 0; j < buttons.length; j++) {
+
+        var key = this.buttons[j];
+
+        /* gamepad down */
+
+        if (buttons[j].pressed && !previous.buttons[key]) {
+          previous.buttons[key] = true;
+          this.gamepaddownEvent.button = this.buttons[j];
+          this.gamepaddownEvent.gamepad = i;
+          this.trigger("gamepaddown", this.gamepaddownEvent);
+        }
+
+        /* gamepad up */
+        else if (!buttons[j].pressed && previous.buttons[key]) {
+          previous.buttons[key] = false;
+          this.gamepadupEvent.button = this.buttons[j];
+          this.gamepadupEvent.gamepad = i;
+          this.trigger("gamepadup", this.gamepaddownEvent);
+        }
+
+      }
+
+    }
+
+  }
+};
+
+playground.extend(playground.Gamepads.prototype, playground.Events.prototype);
+
+
+/* Loader */
 
 playground.Loader = function() {
 
