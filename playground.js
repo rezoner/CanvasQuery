@@ -62,7 +62,7 @@ function Playground(args) {
 
   if (!this.container) this.container = document.body;
   if (this.container !== document.body) this.customContainer = true;
-
+  if (typeof this.container === "string") this.container = document.querySelector(this.container);
   /* state */
 
   this.state = {};
