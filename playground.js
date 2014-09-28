@@ -593,7 +593,7 @@ playground.Mouse.prototype = {
 
   mousedown: function(e) {
     this.mousedownEvent.x = this.mousemoveEvent.x;
-    this.mousedownEvent.y = this.mousemoveEvent.x;
+    this.mousedownEvent.y = this.mousemoveEvent.y;
     this.mousedownEvent.button = ["left", "middle", "right"][e.button];
     this.mousedownEvent.original = e;
 
@@ -605,7 +605,7 @@ playground.Mouse.prototype = {
 
   mouseup: function(e) {
     this.mouseupEvent.x = this.mousemoveEvent.x;
-    this.mouseupEvent.y = this.mousemoveEvent.x;
+    this.mouseupEvent.y = this.mousemoveEvent.y;
     this.mouseupEvent.button = ["none", "left", "middle", "right"][e.button];
     this.mouseupEvent.original = e;
 
@@ -615,10 +615,10 @@ playground.Mouse.prototype = {
   },
 
   mousewheel: function(e) {
-    this.mouseupEvent.x = this.mousemoveEvent.x;
-    this.mouseupEvent.y = this.mousemoveEvent.x;
-    this.mouseupEvent.button = ["none", "left", "middle", "right"][e.button];
-    this.mouseupEvent.original = e;
+    this.mousewheelEvent.x = this.mousemoveEvent.x;
+    this.mousewheelEvent.y = this.mousemoveEvent.y;
+    this.mousewheelEvent.button = ["none", "left", "middle", "right"][e.button];
+    this.mousewheelEvent.original = e;
 
     this[e.button] = false;
 
