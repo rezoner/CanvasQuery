@@ -567,45 +567,6 @@ playground.Mouse = function(element) {
     if (self.preventContextMenu) e.preventDefault();
   });
 
-  this.cursor = {
-    prefix: "playground_cursor_",
-    ids: {},
-    init: function(id, url, offX, offY){
-      var style = this.style || (this.style = this._create());
-      style.innerHTML += "." + this.prefix + id + "{cursor: url(\"" + url + "\") " + (offX | 0) + " " + (offY | 0) + ",auto;}";
-      this.ids[id] = true;
-    },
-    _create: function(){
-      var pfx = "." + this.prefix;
-      var builtins = ["alias","all-scroll","auto","cell","col-resize","copy","context-menu","crosshair","default","ew-resize","e-resize","help","move","nesw-resize","ne-resize","none","not-allowed","no-drop","ns-resize","nwse-resize","nw-resize","n-resize","pointer","progress","row-resize","se-resize","sw-resize","s-resize","text","vertical-text","w-resize"];
-      for(var b=0, bb=builtins.length, str=""; b<bb; ++b){
-        var bi = builtins[b];
-        str += pfx + bi + "{cursor:" + bi + ";}";
-        this.ids[bi] = true;
-      }
-      var style = document.createElement("style");
-      style.type = "text/css";
-      style.innerHTML += str;
-      document.head.appendChild(style);
-      return style;
-    },
-    apply: function(id){
-      if(id === this.id || !this.ids.hasOwnProperty(id)){ return; }
-      element.classList.remove(this.prefix + this.id);
-      element.classList.add(this.prefix + id);
-      this.id = id;
-    },
-    clear: function(){
-      if(!this.id){ return; }
-      element.classList.remove(this.prefix + this.id);
-      this.id = "";
-    },
-    toggle: function(id){
-      if(id === this.id){ this.clear(); }
-      else { this.apply(id); }
-    }
-  };
-
 };
 
 playground.Mouse.prototype = {
