@@ -607,24 +607,29 @@ playground.Mouse.prototype = {
   },
 
   mousedown: function(e) {
+
+    var buttonName = ["left", "middle", "right"][e.button];
+
     this.mousedownEvent.x = this.mousemoveEvent.x;
     this.mousedownEvent.y = this.mousemoveEvent.y;
-    this.mousedownEvent.button = ["left", "middle", "right"][e.button];
+    this.mousedownEvent.button = buttonName;
     this.mousedownEvent.original = e;
 
-
-    this[e.button] = true;
+    this[buttonName] = true;
 
     this.trigger("mousedown", this.mousedownEvent);
   },
 
   mouseup: function(e) {
+    
+    var buttonName = ["left", "middle", "right"][e.button];
+
     this.mouseupEvent.x = this.mousemoveEvent.x;
     this.mouseupEvent.y = this.mousemoveEvent.y;
-    this.mouseupEvent.button = ["none", "left", "middle", "right"][e.button];
+    this.mouseupEvent.button = buttonName;
     this.mouseupEvent.original = e;
 
-    this[e.button] = false;
+    this[buttonName] = false;
 
     this.trigger("mouseup", this.mouseupEvent);
   },
