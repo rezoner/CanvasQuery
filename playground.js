@@ -1,5 +1,5 @@
 /*     
-  Playground 1.0.0
+  Playground 1.0.1
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Playground may be freely distributed under the MIT license.
@@ -151,10 +151,13 @@ function Playground(args) {
     if (self.loader.count <= 0) {
 
       if (self.step) self.step(dt);
-      if (self.render) self.render(dt);
-
       if (self.state.step) self.state.step(dt);
+
+      if (self.render) self.render(dt);
       if (self.state.render) self.state.render(dt);
+
+      if (self.postrender) self.postrender(dt);
+      if (self.state.postrender) self.state.postrender(dt);
 
     } else {
       self.renderLoader(dt);
@@ -180,11 +183,11 @@ function Playground(args) {
 
   /* default audio format */
 
-  var canPlayOgg = (new Audio).canPlayType('audio/ogg; codecs="vorbis"');
   var canPlayMp3 = (new Audio).canPlayType("audio/mp3");
+  var canPlayOgg = (new Audio).canPlayType('audio/ogg; codecs="vorbis"');
 
-  if (canPlayOgg) this.audioFormat = "ogg";
-  else this.audioFormat = "mp3";
+  if (canPlayMp3) this.audioFormat = "mp3";
+  else this.audioFormat = "ogg";
 
   this.loader = new playground.Loader();
 
@@ -258,8 +261,8 @@ Playground.prototype = {
 
       if (this.roundScale) this.scale = Math.max(1, Math.floor(this.scale));
 
-      this.offsetX = (containerWidth / 2 - this.scale * (this.width / 2) | 0);
-      this.offsetY = (containerHeight / 2 - this.scale * (this.height / 2) | 0);
+      this.offsetX = containerWidth / 2 - this.scale * (this.width / 2) | 0;
+      this.offsetY = containerHeight / 2 - this.scale * (this.height / 2) | 0;
 
       this.mouse.scale = this.scale;
       this.mouse.offsetX = this.offsetX;
@@ -756,6 +759,7 @@ playground.Touch.prototype = {
     this.y = this.touchmoveEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
     this.touchmoveEvent.original = e;
+    this.touchmoveEvent.identifier = e.identifier;
 
     this.trigger("touchmove", this.touchmoveEvent);
 
@@ -767,6 +771,7 @@ playground.Touch.prototype = {
     this.touchstartEvent.y = this.touchmoveEvent.x;
 
     this.touchstartEvent.original = e;
+    this.touchstartEvent.identifier = e.identifier;
 
     this.pressed = true;
 
@@ -778,6 +783,7 @@ playground.Touch.prototype = {
     this.touchendEvent.y = this.touchmoveEvent.x;
 
     this.touchendEvent.original = e;
+    this.touchendEvent.identifier = e.identifier;
 
     this.pressed = false;
 
@@ -998,15 +1004,19 @@ playground.Gamepads.prototype = {
 
       /* axes (sticks) to buttons */
 
-      if (current.axes[0] < 0) buttons[14].pressed = true;
-      if (current.axes[0] > 0) buttons[15].pressed = true;
-      if (current.axes[1] < 0) buttons[12].pressed = true;
-      if (current.axes[1] > 0) buttons[13].pressed = true;
+      if (current.axes) {
 
-      previous.sticks[0].x = current.axes[0].value;
-      previous.sticks[0].y = current.axes[1].value;
-      previous.sticks[1].x = current.axes[2].value;
-      previous.sticks[1].y = current.axes[3].value;
+        if (current.axes[0] < 0) buttons[14].pressed = true;
+        if (current.axes[0] > 0) buttons[15].pressed = true;
+        if (current.axes[1] < 0) buttons[12].pressed = true;
+        if (current.axes[1] > 0) buttons[13].pressed = true;
+
+        previous.sticks[0].x = current.axes[0].value;
+        previous.sticks[0].y = current.axes[1].value;
+        previous.sticks[1].x = current.axes[2].value;
+        previous.sticks[1].y = current.axes[3].value;
+
+      }
 
       /* check buttons changes */
 
@@ -1028,7 +1038,7 @@ playground.Gamepads.prototype = {
           previous.buttons[key] = false;
           this.gamepadupEvent.button = this.buttons[j];
           this.gamepadupEvent.gamepad = i;
-          this.trigger("gamepadup", this.gamepaddownEvent);
+          this.trigger("gamepadup", this.gamepadupEvent);
         }
 
       }

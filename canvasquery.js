@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 1.0.0
+  Canvas Query 1.0.1
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -17,7 +17,7 @@
   } else {
     var Canvas = window.HTMLCanvasElement;
     var Image = window.HTMLImageElement;
-    var COCOONJS = window.CocoonJS && window.CocoonJS.App;
+    var COCOONJS = navigator.isCocoonJS;
   }
 
   var cq = function(selector) {
