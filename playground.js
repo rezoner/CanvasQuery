@@ -768,7 +768,7 @@ playground.Touch.prototype = {
 
   touchstart: function(e) {
     this.touchstartEvent.x = this.touchmoveEvent.x;
-    this.touchstartEvent.y = this.touchmoveEvent.x;
+    this.touchstartEvent.y = this.touchmoveEvent.y;
 
     this.touchstartEvent.original = e;
     this.touchstartEvent.identifier = e.identifier;
@@ -780,7 +780,7 @@ playground.Touch.prototype = {
 
   touchend: function(e) {
     this.touchendEvent.x = this.touchmoveEvent.x;
-    this.touchendEvent.y = this.touchmoveEvent.x;
+    this.touchendEvent.y = this.touchmoveEvent.y;
 
     this.touchendEvent.original = e;
     this.touchendEvent.identifier = e.identifier;
