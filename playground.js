@@ -1,5 +1,5 @@
 /*     
-  Playground 1.0.1
+  Playground 1.0.2
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Playground may be freely distributed under the MIT license.
@@ -541,6 +541,8 @@ playground.Events.prototype = {
 /* Mouse */
 
 playground.Mouse = function(element) {
+
+  var self = this;
 
   playground.Events.call(this);
 
