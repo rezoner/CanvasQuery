@@ -568,7 +568,7 @@ playground.Mouse = function(element) {
 
   this.enableMousewheel();
 
-  document.addEventListener("contextmenu", function(e) {
+  this.element.addEventListener("contextmenu", function(e) {
     if (self.preventContextMenu) e.preventDefault();
   });
 
