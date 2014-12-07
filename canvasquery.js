@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 1.0.1
+  Canvas Query 1.1
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.

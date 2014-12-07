@@ -1,5 +1,5 @@
 /*     
-  Playground 1.0.2
+  Playground 1.1
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Playground may be freely distributed under the MIT license.
@@ -192,7 +192,14 @@ function Playground(args) {
   this.loader = new playground.Loader();
 
   this.images = {};
-  this.sounds = {};
+
+  var audioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+
+  if (audioContext) {
+    this.sound = new Playground.Sound(this);
+  } else {
+    this.sound = new Playground.SoundFallback(this);
+  }
 
   this.loadFoo(0.5);
 
@@ -384,32 +391,7 @@ Playground.prototype = {
         for (var key in arg) this.loadSounds(arg[key]);
 
       } else {
-
-        /* if argument is not an object/array let's try to load it */
-
-        var filename = arg;
-
-        var loader = this.loader;
-
-        var key = filename;
-
-        filename += "." + this.audioFormat;
-
-        var path = "sounds/" + filename;
-
-        this.loader.add(path);
-
-        var audio = this.sounds[key] = new Audio;
-
-        audio.addEventListener("canplay", function() {
-          loader.ready(path);
-        });
-
-        audio.addEventListener("error", function() {
-          loader.error(path);
-        });
-
-        audio.src = path;
+        this.sound.load(arg);
       }
     }
 
@@ -463,16 +445,21 @@ Playground.prototype = {
   },
 
   playSound: function(key, loop) {
-    var sound = this.sounds[key];
-    sound.currentTime = 0;
-    sound.loop = loop;
-    sound.play();
-    return sound;
+
+    if (!this.audioChannels) {
+      this.audioChannels = [];
+
+      for (var i = 0; i < 16; i++) this.audioChannels.push(new Audio);
+
+      this.audioChannelIndex = 0;
+    }
+
+    return this.sound.play(key, loop);
+
   },
 
   stopSound: function(sound) {
-    if (typeof sound === "string") sound = this.sounds[sound];
-    sound.pause();
+    this.sound.stop(sound);
   }
 
 
@@ -623,7 +610,7 @@ playground.Mouse.prototype = {
   },
 
   mouseup: function(e) {
-    
+
     var buttonName = ["left", "middle", "right"][e.button];
 
     this.mouseupEvent.x = this.mousemoveEvent.x;
@@ -1117,84 +1104,84 @@ CanvasQuery.Layer.prototype.playground = function(args) {
 window.Whammy = function() {
   function h(a, b) {
     for (var c = r(a), c = [{
-      id: 440786851,
-      data: [{
-        data: 1,
-        id: 17030
-      }, {
-        data: 1,
-        id: 17143
-      }, {
-        data: 4,
-        id: 17138
-      }, {
-        data: 8,
-        id: 17139
-      }, {
-        data: "webm",
-        id: 17026
-      }, {
-        data: 2,
-        id: 17031
-      }, {
-        data: 2,
-        id: 17029
-      }]
-    }, {
-      id: 408125543,
-      data: [{
-        id: 357149030,
+        id: 440786851,
         data: [{
-          data: 1E6,
-          id: 2807729
+          data: 1,
+          id: 17030
         }, {
-          data: "whammy",
-          id: 19840
+          data: 1,
+          id: 17143
         }, {
-          data: "whammy",
-          id: 22337
+          data: 4,
+          id: 17138
         }, {
-          data: s(c.duration),
-          id: 17545
+          data: 8,
+          id: 17139
+        }, {
+          data: "webm",
+          id: 17026
+        }, {
+          data: 2,
+          id: 17031
+        }, {
+          data: 2,
+          id: 17029
         }]
       }, {
-        id: 374648427,
+        id: 408125543,
         data: [{
-          id: 174,
+          id: 357149030,
           data: [{
-            data: 1,
-            id: 215
+            data: 1E6,
+            id: 2807729
           }, {
-            data: 1,
-            id: 25541
+            data: "whammy",
+            id: 19840
           }, {
-            data: 0,
-            id: 156
+            data: "whammy",
+            id: 22337
           }, {
-            data: "und",
-            id: 2274716
-          }, {
-            data: "V_VP8",
-            id: 134
-          }, {
-            data: "VP8",
-            id: 2459272
-          }, {
-            data: 1,
-            id: 131
-          }, {
-            id: 224,
+            data: s(c.duration),
+            id: 17545
+          }]
+        }, {
+          id: 374648427,
+          data: [{
+            id: 174,
             data: [{
-              data: c.width,
-              id: 176
+              data: 1,
+              id: 215
             }, {
-              data: c.height,
-              id: 186
+              data: 1,
+              id: 25541
+            }, {
+              data: 0,
+              id: 156
+            }, {
+              data: "und",
+              id: 2274716
+            }, {
+              data: "V_VP8",
+              id: 134
+            }, {
+              data: "VP8",
+              id: 2459272
+            }, {
+              data: 1,
+              id: 131
+            }, {
+              id: 224,
+              data: [{
+                data: c.width,
+                id: 176
+              }, {
+                data: c.height,
+                id: 186
+              }]
             }]
           }]
         }]
-      }]
-    }], e = 0, d = 0; e < a.length;) {
+      }], e = 0, d = 0; e < a.length;) {
       var g = [],
         f = 0;
       do g.push(a[e]), f += a[e].duration, e++; while (e < a.length && 3E4 > f);
@@ -1229,7 +1216,7 @@ window.Whammy = function() {
 
   function r(a) {
     for (var b = a[0].width, c = a[0].height, e = a[0].duration,
-      d = 1; d < a.length; d++) {
+        d = 1; d < a.length; d++) {
       if (a[d].width != b) throw "Frame " + (d + 1) + " has a different width";
       if (a[d].height != c) throw "Frame " + (d + 1) + " has a different height";
       if (0 > a[d].duration || 32767 < a[d].duration) throw "Frame " + (d + 1) + " has a weird duration (must be between 0 and 32767)";
@@ -1299,7 +1286,7 @@ window.Whammy = function() {
 
   function q(a) {
     for (var b = a.RIFF[0].WEBP[0], c = b.indexOf("\u009d\u0001*"),
-      e = 0, d = []; 4 > e; e++) d[e] = b.charCodeAt(c + 3 + e);
+        e = 0, d = []; 4 > e; e++) d[e] = b.charCodeAt(c + 3 + e);
     e = d[1] << 8 | d[0];
     c = e & 16383;
     e = d[3] << 8 | d[2];
@@ -1438,3 +1425,234 @@ playground.VideoRecorder.prototype = {
   }
 
 };
+
+Playground.SoundInterface = {
+
+};
+
+Playground.Sound = function(parent) {
+
+  this.parent = parent;
+
+  var canPlayMp3 = (new Audio).canPlayType("audio/mp3");
+  var canPlayOgg = (new Audio).canPlayType('audio/ogg; codecs="vorbis"');
+
+  if (canPlayMp3) this.audioFormat = "mp3";
+  else this.audioFormat = "ogg";
+
+  var audioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+
+  this.context = new audioContext;
+
+  this.gainNode = this.context.createGain()
+  this.gainNode.connect(this.context.destination);
+
+  this.compressor = this.context.createDynamicsCompressor();
+  this.compressor.connect(this.gainNode);
+
+  this.output = this.gainNode;
+
+  this.gainNode.gain.value = 1.0;
+
+  this.buffers = [];
+  this.pool = [];
+  this.volume = 1.0;
+
+};
+
+Playground.Sound.prototype = {
+
+  setMaster: function(volume) {
+
+    this.volume = volume;
+
+    this.gainNode.gain.value = volume;
+
+  },
+
+  load: function(file) {
+
+    var url = "sounds/" + file + "." + this.audioFormat;
+    var sampler = this;
+
+    var request = new XMLHttpRequest();
+
+    request.open("GET", url, true);
+    request.responseType = "arraybuffer";
+
+    var id = this.parent.loader.add();
+
+    request.onload = function() {
+
+      sampler.context.decodeAudioData(this.response, function(decodedBuffer) {
+        sampler.buffers[file] = decodedBuffer;
+        sampler.parent.loader.ready(id);
+      });
+
+    }
+
+    request.send();
+
+  },
+
+  cleanArray: function(array, property) {
+    for (var i = 0, len = array.length; i < len; i++) {
+      if (array[i] === null || (property && array[i][property])) {
+        array.splice(i--, 1);
+        len--;
+      }
+    }
+  },
+
+  getSoundBuffer: function() {
+    if (!this.pool.length) {
+      for (var i = 0; i < 100; i++) {
+        var nodes = [
+          this.context.createBufferSource(),
+          this.context.createGain()
+        ];
+
+        this.pool.push(nodes);
+
+        nodes[0].connect(nodes[1]);
+        nodes[1].connect(this.output);
+      }
+    }
+
+    return this.pool.pop();
+  },
+
+  play: function(name, loop) {
+
+    var nodes = this.getSoundBuffer();
+
+    bufferSource = nodes[0];
+    bufferSource.gainNode = nodes[1];
+    bufferSource.buffer = this.buffers[name];
+    bufferSource.loop = loop || false;
+    bufferSource.key = name;
+
+    if (this.loop) {
+      //  bufferSource.loopStart = this.loopStart;
+      // bufferSource.loopEnd = this.loopEnd;
+    }
+
+    bufferSource.gainNode.gain.value = 1.0;
+
+    bufferSource.start(0);
+
+    bufferSource.volumeLimit = 1;
+
+    return bufferSource;
+  },
+
+  stop: function(what) {
+
+    if (!what) return;
+
+    what.stop(0);
+
+  },
+
+  setPlaybackRate: function(sound, rate) {
+
+    if (!sound) return;
+
+    return sound.playbackRate.value = rate;
+  },
+
+  setVolume: function(sound, volume) {
+
+    if (!sound) return;
+
+    return sound.gainNode.gain.value = Math.max(0, volume);
+  }
+
+};
+
+playground.extend(Playground.Sound.prototype, Playground.SoundInterface);
+
+Playground.SoundFallback = function(parent) {
+
+  this.parent = parent;
+
+  var canPlayMp3 = (new Audio).canPlayType("audio/mp3");
+  var canPlayOgg = (new Audio).canPlayType('audio/ogg; codecs="vorbis"');
+
+  if (canPlayMp3) this.audioFormat = "mp3";
+  else this.audioFormat = "ogg";
+
+  this.samples = {};
+
+};
+
+Playground.SoundFallback.prototype = {
+
+  setMaster: function(volume) {
+
+    this.volume = volume;
+
+  },
+  load: function(file) {
+
+    var filename = arg;
+
+    var loader = this.parent.loader;
+
+    var key = filename;
+
+    filename += "." + this.audioFormat;
+
+    var path = "sounds/" + filename;
+
+    this.loader.add(path);
+
+    var audio = this.samples[key] = new Audio;
+
+    audio.addEventListener("canplay", function() {
+      loader.ready(path);
+    });
+
+    audio.addEventListener("error", function() {
+      loader.error(path);
+    });
+
+    audio.src = path;
+
+
+  },
+
+  play: function(key, loop) {
+
+    var sound = this.sounds[key];
+
+    sound.currentTime = 0;
+    sound.loop = loop;
+    sound.play();
+
+    return sound;
+
+  },
+
+  stop: function(what) {
+
+    if (!what) return;
+
+    what.pause();
+
+  },
+
+  setPlaybackRate: function(sound, rate) {
+
+    return;
+  },
+
+  setVolume: function(sound, volume) {
+
+    sound.volume = volume * this.volume;
+  
+  }
+
+};
+
+playground.extend(Playground.SoundFallback.prototype, Playground.SoundInterface);
