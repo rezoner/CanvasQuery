@@ -1,5 +1,5 @@
 /*     
-  Canvas Query 1.1
+  Canvas Query 1.12
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
@@ -404,7 +404,7 @@
       this.context.msImageSmoothingEnabled = cq.smoothing;
       this.context.imageSmoothingEnabled = cq.smoothing;
 
-      if (COCOONJS) CocoonJS.App.setAntialias(cq.smoothing);
+      if (COCOONJS) Cocoon.Utils.setAntialias(cq.smoothing);
     },
 
     appendTo: function(selector) {
@@ -906,7 +906,7 @@
       return this;
     },
 
-removeColor: function(color) {
+    removeColor: function(color) {
 
       color = cq.color(color);
 
@@ -1344,7 +1344,7 @@ removeColor: function(color) {
       /* this is how it should work - but it does not */
 
       color = cq.color(color);
-      
+
       var pixel = this.createImageData(1, 1);
 
       pixel.data[0] = color[0];

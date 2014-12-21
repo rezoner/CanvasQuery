@@ -4,10 +4,6 @@
   (c) 2012-2014 http://rezoner.net
   Playground may be freely distributed under the MIT license.
 
-  + navigator.isCocoonJS
-  + state.event  
-  + multitouch
-
 */
 
 function playground(args) {
