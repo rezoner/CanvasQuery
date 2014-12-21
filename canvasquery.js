@@ -744,6 +744,21 @@
 
     },
 
+    polygon: function(array) {
+
+      this.beginPath();
+
+      this.moveTo(array[0][0], array[0][1]);
+
+      for (var i = 1; i < array.length; i++) {
+        this.lineTo(array[i][0], array[i][1]);
+      }
+
+      this.closePath();
+
+      return this;
+    },
+
     colorToMask: function(color, inverted) {
       color = cq.color(color).toArray();
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -752,8 +767,8 @@
       var mask = [];
 
       for (var i = 0, len = sourcePixels.length; i < len; i += 4) {
-        if (sourcePixels[i + 0] == color[0] && sourcePixels[i + 1] == color[1] && sourcePixels[i + 2] == color[2]) mask.push(inverted || false);
-        else mask.push(!inverted);
+        if (sourcePixels[i + 3] > 0) mask.push(inverted ? false : true);
+        else mask.push(inverted ? true : false);
       }
 
       return mask;
@@ -886,6 +901,31 @@
 
         this.fillStyle(lingrad).fillText(text, x, oy);
       }
+
+      return this;
+    },
+
+removeColor: function(color) {
+
+      color = cq.color(color);
+
+      var data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var pixels = data.data;
+
+      for (var x = 0; x < this.canvas.width; x++) {
+        for (var y = 0; y < this.canvas.height; y++) {
+          var i = (y * this.canvas.width + x) * 4;
+
+          if (pixels[i + 0] === color[0] && pixels[i + 1] === color[1] && pixels[i + 2] === color[2]) {
+            pixels[i + 3] = 0;
+          }
+
+
+        }
+      }
+
+      this.clear();
+      this.context.putImageData(data, 0, 0);
 
       return this;
     },

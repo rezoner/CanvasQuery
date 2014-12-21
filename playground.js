@@ -1,8 +1,13 @@
 /*     
-  Playground 1.1
+  Playground 1.16
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Playground may be freely distributed under the MIT license.
+
+  + navigator.isCocoonJS
+  + state.event  
+  + multitouch
+
 */
 
 function playground(args) {
@@ -73,13 +78,12 @@ function Playground(args) {
   if (!args.layer) {
     cq.smoothing = this.smoothing;
 
-    if (window.CocoonJS) {
+    if (navigator.isCocoonJS) {
       this.layer = cq.cocoon(1, 1);
       this.layer.appendTo(this.container);
       this.screen = this.layer;
     } else {
       this.layer = cq(1, 1);
-
       if (this.scaleToFit) {
         this.screen = cq(1, 1);
         this.screen.appendTo(this.container);
@@ -230,6 +234,7 @@ Playground.prototype = {
   eventsHandler: function(event, data) {
 
     if (this[event]) this[event](data);
+    if (this.state.event) this.state.event(event, data);
     if (this.state[event]) this.state[event](data);
 
   },
@@ -709,6 +714,8 @@ playground.Touch = function(element) {
   this.touchstartEvent = {};
   this.touchendEvent = {};
 
+  this.touches = {};
+
   this.x = 0;
   this.y = 0;
 
@@ -747,41 +754,68 @@ playground.Touch.prototype = {
   },
 
   touchmove: function(e) {
-    var touch = e.touches[0] || e.changedTouches[0];
+    for (var i = 0; i < e.changedTouches.length; i++) {
 
-    this.x = this.touchmoveEvent.x = (touch.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
-    this.y = this.touchmoveEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
+      var touch = e.changedTouches[i];
 
-    this.touchmoveEvent.original = e;
-    this.touchmoveEvent.identifier = e.identifier;
+      this.x = this.touchmoveEvent.x = (touch.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
+      this.y = this.touchmoveEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
-    this.trigger("touchmove", this.touchmoveEvent);
+      this.touchmoveEvent.original = touch;
+      this.touchmoveEvent.id = touch.identifier;
 
-    e.preventDefault();
+      this.touches[touch.identifier].x = this.touchmoveEvent.x;
+      this.touches[touch.identifier].y = this.touchmoveEvent.y;
+
+      this.trigger("touchmove", this.touchmoveEvent);
+
+      e.preventDefault();
+    }
   },
 
   touchstart: function(e) {
-    this.touchstartEvent.x = this.touchmoveEvent.x;
-    this.touchstartEvent.y = this.touchmoveEvent.y;
 
-    this.touchstartEvent.original = e;
-    this.touchstartEvent.identifier = e.identifier;
+    for (var i = 0; i < e.changedTouches.length; i++) {
 
-    this.pressed = true;
+      var touch = e.changedTouches[i];
 
-    this.trigger("touchstart", this.touchstartEvent);
+      this.x = this.touchstartEvent.x = (touch.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
+      this.y = this.touchstartEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
+
+      this.touchstartEvent.original = e.touch;
+      this.touchstartEvent.id = touch.identifier;
+
+      this.touches[touch.identifier] = {
+        x: this.touchstartEvent.x,
+        y: this.touchstartEvent.y
+      };
+
+      this.pressed = true;
+
+      this.trigger("touchstart", this.touchstartEvent);
+    }
+
   },
 
   touchend: function(e) {
-    this.touchendEvent.x = this.touchmoveEvent.x;
-    this.touchendEvent.y = this.touchmoveEvent.y;
+    for (var i = 0; i < e.changedTouches.length; i++) {
 
-    this.touchendEvent.original = e;
-    this.touchendEvent.identifier = e.identifier;
+      var touch = e.changedTouches[i];
 
-    this.pressed = false;
+      this.touchendEvent.x = this.touchmoveEvent.x;
+      this.touchendEvent.y = this.touchmoveEvent.y;
 
-    this.trigger("touchend", this.touchendEvent);
+      this.touchendEvent.original = touch;
+      this.touchendEvent.id = touch.identifier;
+
+      delete this.touches[touch.identifier];
+
+      this.pressed = false;
+
+      this.trigger("touchend", this.touchendEvent);
+
+    }
+
   }
 
 };
@@ -1458,6 +1492,8 @@ Playground.Sound = function(parent) {
   this.pool = [];
   this.volume = 1.0;
 
+  this.setMasterPosition(0, 0, 0);
+
 };
 
 Playground.Sound.prototype = {
@@ -1504,17 +1540,47 @@ Playground.Sound.prototype = {
     }
   },
 
+  setMasterPosition: function(x, y, z) {
+
+    this.masterPosition = {
+      x: x,
+      y: y,
+      z: z
+    };
+
+    this.context.listener.setPosition(x, y, z)
+      // this.context.listener.setOrientation(0, 0, -1, 0, 1, 0);
+      // this.context.listener.dopplerFactor = 1;
+      // this.context.listener.speedOfSound = 343.3;
+  },
+
   getSoundBuffer: function() {
     if (!this.pool.length) {
       for (var i = 0; i < 100; i++) {
+
+        var buffer, gain, panner;
+
         var nodes = [
-          this.context.createBufferSource(),
-          this.context.createGain()
+          buffer = this.context.createBufferSource(),
+          gain = this.context.createGain(),
+          panner = this.context.createPanner()
         ];
+
+        panner.distanceModel = "linear";
+
+        // 1 - rolloffFactor * (distance - refDistance) / (maxDistance - refDistance)
+        // refDistance / (refDistance + rolloffFactor * (distance - refDistance))
+        panner.refDistance = 1;
+        panner.maxDistance = 600;
+        panner.rolloffFactor = 1.0;
+
+
+        // panner.setOrientation(-1, -1, 0);
 
         this.pool.push(nodes);
 
         nodes[0].connect(nodes[1]);
+        // nodes[1].connect(nodes[2]);
         nodes[1].connect(this.output);
       }
     }
@@ -1528,6 +1594,7 @@ Playground.Sound.prototype = {
 
     bufferSource = nodes[0];
     bufferSource.gainNode = nodes[1];
+    bufferSource.pannerNode = nodes[2];
     bufferSource.buffer = this.buffers[name];
     bufferSource.loop = loop || false;
     bufferSource.key = name;
@@ -1542,6 +1609,9 @@ Playground.Sound.prototype = {
     bufferSource.start(0);
 
     bufferSource.volumeLimit = 1;
+
+    this.setPosition(bufferSource, this.masterPosition.x, this.masterPosition.y, this.masterPosition.z);
+
 
     return bufferSource;
   },
@@ -1559,6 +1629,21 @@ Playground.Sound.prototype = {
     if (!sound) return;
 
     return sound.playbackRate.value = rate;
+  },
+
+  setPosition: function(sound, x, y, z) {
+
+    if (!sound) return;
+
+    sound.pannerNode.setPosition(x, y || 0, z || 0);
+  },
+
+  setVelocity: function(sound, x, y, z) {
+
+    if (!sound) return;
+
+    sound.pannerNode.setPosition(x, y || 0, z || 0);
+
   },
 
   setVolume: function(sound, volume) {
@@ -1593,6 +1678,11 @@ Playground.SoundFallback.prototype = {
     this.volume = volume;
 
   },
+
+  setPosition: function(x, y, z) {
+    return;
+  },
+
   load: function(file) {
 
     var filename = arg;
@@ -1650,7 +1740,7 @@ Playground.SoundFallback.prototype = {
   setVolume: function(sound, volume) {
 
     sound.volume = volume * this.volume;
-  
+
   }
 
 };
