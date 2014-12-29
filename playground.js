@@ -1,5 +1,5 @@
 /*     
-  Playground 1.16
+  Playground 1.20
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Playground may be freely distributed under the MIT license.
@@ -230,7 +230,7 @@ Playground.prototype = {
   eventsHandler: function(event, data) {
 
     if (this[event]) this[event](data);
-    if (this.state.event) this.state.event(event, data);
+    if (this.state.proxy) this.state.proxy(event, data);
     if (this.state[event]) this.state[event](data);
 
   },
@@ -560,9 +560,26 @@ playground.Mouse = function(element) {
     if (self.preventContextMenu) e.preventDefault();
   });
 
+  element.requestPointerLock = element.requestPointerLock ||
+    element.mozRequestPointerLock ||
+    element.webkitRequestPointerLock;
+
+  document.exitPointerLock = document.exitPointerLock ||
+    document.mozExitPointerLock ||
+    document.webkitExitPointerLock;
 };
 
 playground.Mouse.prototype = {
+
+  lock: function() {
+    this.locked = true;
+    this.element.requestPointerLock();
+  },
+
+  release: function() {
+    this.locked = false;
+    document.exitPointerLock();
+  },
 
   getElementOffset: function(element) {
 
@@ -587,14 +604,27 @@ playground.Mouse.prototype = {
     this.elementOffset = this.getElementOffset(this.element);
   },
 
-  mousemove: function(e) {
+  mousemove: playground.throttle(function(e) {
     this.x = this.mousemoveEvent.x = (e.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
     this.y = this.mousemoveEvent.y = (e.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
     this.mousemoveEvent.original = e;
 
+    if (this.locked) {
+      this.mousemoveEvent.movementX = e.movementX ||
+        e.mozMovementX ||
+        e.webkitMovementX ||
+        0;
+
+      this.mousemoveEvent.movementY = e.movementY ||
+        e.mozMovementY ||
+        e.webkitMovementY ||
+        0;
+    }
+
+
     this.trigger("mousemove", this.mousemoveEvent);
-  },
+  }, 16),
 
   mousedown: function(e) {
 
