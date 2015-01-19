@@ -1,6 +1,6 @@
 /*     
 
-  Playground 1.30
+  Playground 1.31
 
   http://canvasquery.org
 
@@ -364,7 +364,7 @@ Playground.prototype = {
 
       if (typeof arg === "object") {
 
-        for (var key in arg) this.addImages(arg[key]);
+        for (var key in arg) this.loadImages(arg[key]);
 
       } else {
 
