@@ -1,7 +1,11 @@
 /*     
-  Playground 1.20
+
+  Playground 1.30
+
   http://canvasquery.org
+
   (c) 2012-2014 http://rezoner.net
+
   Playground may be freely distributed under the MIT license.
 
 */
@@ -159,6 +163,8 @@ function Playground(args) {
       if (self.postrender) self.postrender(dt);
       if (self.state.postrender) self.state.postrender(dt);
 
+      self.loaderTookScreenshot = false;
+
     } else {
       self.renderLoader(dt);
     }
@@ -206,6 +212,10 @@ function Playground(args) {
   if (this.create) setTimeout(this.create.bind(this));
 
   this.loader.on("ready", function() {
+    self.foofooLoader = 0;
+  });
+
+  this.loader.once("ready", function() {
     if (self.ready) self.ready();
 
     self.ready = function() {};
@@ -220,6 +230,7 @@ Playground.prototype = {
   setState: function(state) {
     state.app = this;
 
+    if (this.state) this.screenshot = app.layer.cache();
     if (this.state && this.state.leave) this.state.leave();
 
     this.state = state;
@@ -299,12 +310,24 @@ Playground.prototype = {
 
   renderLoader: function() {
 
+
     var height = this.height / 10 | 0;
     var x = 32;
     var width = this.width - x * 2;
     var y = this.height / 2 - height / 2 | 0;
 
+    if (!this.loaderTookScreenshot) {
+      this.loaderTookScreenshot = true;
+      console.log("screenshot")
+      this.screenshot = this.layer.cache();
+    }
+
     this.layer.clear("#000");
+    if (this.screenshot) {
+      this.layer.drawImage(this.screenshot, 0, 0);
+      this.layer.clear("rgba(0,0,0,0.4)");
+    }
+
     this.layer.strokeStyle("#fff").lineWidth(2).strokeRect(x, y, width, height);
     this.layer.fillStyle("#fff").fillRect(x, y, width * this.loader.progress | 0, height);
 
@@ -520,6 +543,7 @@ playground.Events.prototype = {
 
         if (listener.once) {
           this.listeners[event].splice(i--, 1);
+          len--;
         }
       }
     }
@@ -1432,7 +1456,7 @@ playground.VideoRecorder.prototype = {
     playground.extend(this, {
       followMouse: false,
       framerate: 20,
-      scale: 1
+      scale: 1.0
     }, args);
 
     if (!this.region) {
@@ -1502,7 +1526,9 @@ Playground.Sound = function(parent) {
 
   var audioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
 
-  this.context = new audioContext;
+  if (!playground.audioContext) playground.audioContext = new audioContext;
+
+  this.context = playground.audioContext;
 
   this.gainNode = this.context.createGain()
   this.gainNode.connect(this.context.destination);
@@ -1767,7 +1793,12 @@ Playground.SoundFallback.prototype = {
 
     sound.volume = volume * this.volume;
 
+  },
+
+  setPosition: function() {
+
   }
+
 
 };
 
