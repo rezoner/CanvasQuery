@@ -1,8 +1,12 @@
 /*     
-  Canvas Query 1.12
+  Canvas Query 1.14
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
+
+  + wrappedText lineHeight
+  + cq.color mix
+
 */
 
 (function() {
@@ -43,6 +47,7 @@
   };
 
   cq.lineSpacing = 1.0;
+  cq.defaultFont = "Arial";
 
   cq.cocoon = function(selector) {
     if (arguments.length === 0) {
@@ -760,6 +765,18 @@
       return this;
     },
 
+    fillPolygon: function(polygon) {
+      this.beginPath();
+      this.polygon(polygon);
+      this.fill();
+    },
+
+    strokePolygon: function(polygon) {
+      this.beginPath();
+      this.polygon(polygon);
+      this.stroke();
+    },
+
     colorToMask: function(color, inverted) {
       color = cq.color(color).toArray();
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -1106,11 +1123,11 @@
 
     },
 
-    wrappedText: function(text, x, y, maxWidth, newlineCallback) {
+    wrappedText: function(text, x, y, maxWidth, lineHeight) {
 
       var words = text.split(" ");
 
-      var lineHeight = this.fontHeight();
+      var lineHeight = lineHeight || this.fontHeight();
 
       var ox = 0;
       var oy = 0;
@@ -1143,8 +1160,6 @@
         var oy = y + i * lineHeight | 0;
 
         var text = lines[i];
-
-        if (newlineCallback) newlineCallback.call(this, x, y + oy);
 
         this.fillText(text, x, oy);
       }
@@ -1647,6 +1662,15 @@
       var l = arguments[2] === false ? hsl[2] : cq.limitValue(arguments[2], 0, 1);
 
       this.fromHsl(h, s, l);
+
+      return this;
+    },
+
+	mix: function(color, amount) {
+      color = cq.color(color);
+
+      for (var i = 0; i < 4; i++)
+        this[i] = cq.mix(this[i], color[i], amount);
 
       return this;
     }

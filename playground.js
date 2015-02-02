@@ -1,8 +1,8 @@
 /*     
 
-  Playground 1.31
+  Playground 1.4
 
-  http://canvasquery.org
+  http://canvasquery.com
 
   (c) 2012-2014 http://rezoner.net
 
@@ -62,7 +62,6 @@ function Playground(args) {
     preventContextMenu: true
   }, args);
 
-
   if (!this.width || !this.height) this.fitToContainer = true;
 
   if (!this.container) this.container = document.body;
@@ -103,14 +102,14 @@ function Playground(args) {
 
   /* mouse */
 
-  this.mouse = new playground.Mouse(canvas);
+  this.mouse = new playground.Mouse(this, canvas);
   this.mouse.on("event", this.eventsHandler);
 
   this.mouse.preventContextMenu = this.preventContextMenu;
 
   /* touch */
 
-  this.touch = new playground.Touch(canvas);
+  this.touch = new playground.Touch(this, canvas);
   this.touch.on("event", this.eventsHandler);
 
   /* keyboard */
@@ -137,6 +136,8 @@ function Playground(args) {
 
   /* game loop */
 
+  this.delta = 0;
+
   var self = this;
 
   var lastTick = Date.now();
@@ -151,6 +152,8 @@ function Playground(args) {
     if (delta > 1000) return;
 
     var dt = delta / 1000;
+
+    self.delta += dt;
 
     if (self.loader.count <= 0) {
 
@@ -179,6 +182,8 @@ function Playground(args) {
     }
 
     self.gamepads.step(dt);
+    self.sound.step(dt);
+    self.music.step(dt);
     self.videoRecorder.step(dt);
 
   };
@@ -198,13 +203,17 @@ function Playground(args) {
   this.loader = new playground.Loader();
 
   this.images = {};
+  this.atlases = {};
 
   var audioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
 
   if (audioContext) {
-    this.sound = new Playground.Sound(this);
+    this.audioContext = new audioContext;
+    this.sound = new Playground.Sound(this, this.audioContext);
+    this.music = new Playground.Sound(this, this.audioContext);
   } else {
     this.sound = new Playground.SoundFallback(this);
+    this.music = new Playground.SoundFallback(this);
   }
 
   this.loadFoo(0.5);
@@ -310,7 +319,6 @@ Playground.prototype = {
 
   renderLoader: function() {
 
-
     var height = this.height / 10 | 0;
     var x = 32;
     var width = this.width - x * 2;
@@ -352,7 +360,104 @@ Playground.prototype = {
 
   },
 
+loadAtlases: function() {
+
+
+    for (var i = 0; i < arguments.length; i++) {
+
+      var arg = arguments[i];
+
+      /* polymorphism at its finest */
+
+      if (typeof arg === "object") {
+
+        for (var key in arg) this.loadAtlases(arg[key]);
+
+      } else {
+
+        /* if argument is not an object/array let's try to load it */
+
+        this._loadAtlas(arg)
+
+      }
+    }
+
+  },
+
+  loadAtlas: function() {
+    return this.loadAtlases.apply(this, arguments);
+  },  
+
+  _loadAtlas: function(filename) {
+
+    var fileinfo = filename.match(/(.*)\..*/);
+    var key = fileinfo ? fileinfo[1] : filename;
+
+    var loader = this.loader;
+
+    /* filename defaults to png */
+
+    if (!fileinfo) filename += ".png";
+
+    var path = "atlases/" + filename;
+
+    this.loader.add(path);
+
+    var atlas = this.atlases[key] = {};
+
+    var image = atlas.image = new Image;
+
+    image.addEventListener("load", function() {
+      loader.ready(path);
+    });
+
+    image.addEventListener("error", function() {
+      loader.error(path);
+    });
+
+    image.src = path;
+
+    /* data */
+
+    var url = "atlases/" + key + ".json";
+
+    var request = new XMLHttpRequest();
+
+    request.open("GET", url, true);
+
+    this.loader.add(url);
+
+    request.onload = function() {
+
+      var data = JSON.parse(this.response);
+
+      atlas.frames = [];
+
+      console.log(data.frames, atlas, key, url)
+
+      for (var i = 0; i < data.frames.length; i++) {
+        var frame = data.frames[i];
+
+        atlas.frames.push({
+          region: [frame.frame.x, frame.frame.y, frame.frame.w, frame.frame.h],
+          offset: [frame.spriteSourceSize.x, frame.spriteSourceSize.y],
+          width: frame.sourceSize.w,
+          height: frame.sourceSize.h
+        });
+      }
+
+      loader.ready(url);
+
+    }
+
+    request.send();
+  },
+
   /* images */
+
+  loadImage: function() {
+    return this.loadImages.apply(this, arguments);
+  },  
 
   loadImages: function() {
 
@@ -401,6 +506,10 @@ Playground.prototype = {
   },
 
   /* sounds */
+
+  loadSound: function() {
+    return this.loadSounds.apply(this, arguments);
+  },  
 
   loadSounds: function() {
 
@@ -552,9 +661,11 @@ playground.Events.prototype = {
 
 /* Mouse */
 
-playground.Mouse = function(element) {
+playground.Mouse = function(parent, element) {
 
   var self = this;
+  this.parent = parent;
+
 
   playground.Events.call(this);
 
@@ -600,7 +711,7 @@ playground.Mouse.prototype = {
     this.element.requestPointerLock();
   },
 
-  release: function() {
+  unlock: function() {
     this.locked = false;
     document.exitPointerLock();
   },
@@ -629,6 +740,7 @@ playground.Mouse.prototype = {
   },
 
   mousemove: playground.throttle(function(e) {
+
     this.x = this.mousemoveEvent.x = (e.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
     this.y = this.mousemoveEvent.y = (e.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
@@ -646,8 +758,15 @@ playground.Mouse.prototype = {
         0;
     }
 
+    if (this.parent.mouseToTouch) {
+      if (this.left) {
+        this.mousemoveEvent.identifier = this.parent.keyboard.keys.ctrl ? 1 : 0;
+        this.trigger("touchmove", this.mousemoveEvent);
+      }
+    } else {
+      this.trigger("mousemove", this.mousemoveEvent);
+    }
 
-    this.trigger("mousemove", this.mousemoveEvent);
   }, 16),
 
   mousedown: function(e) {
@@ -661,7 +780,14 @@ playground.Mouse.prototype = {
 
     this[buttonName] = true;
 
-    this.trigger("mousedown", this.mousedownEvent);
+    if (this.parent.mouseToTouch) {
+      this.mousedownEvent.identifier = this.parent.keyboard.keys.ctrl ? 1 : 0;
+      this.trigger("touchmove", this.mousedownEvent);
+      this.trigger("touchstart", this.mousedownEvent);
+    } else {
+      this.trigger("mousedown", this.mousedownEvent);
+    }
+
   },
 
   mouseup: function(e) {
@@ -675,7 +801,12 @@ playground.Mouse.prototype = {
 
     this[buttonName] = false;
 
-    this.trigger("mouseup", this.mouseupEvent);
+    if (this.parent.mouseToTouch) {
+      this.mouseupEvent.identifier = this.parent.keyboard.keys.ctrl ? 1 : 0;
+      this.trigger("touchend", this.mouseupEvent);
+    } else {
+      this.trigger("mouseup", this.mouseupEvent);
+    }
   },
 
   mousewheel: function(e) {
@@ -752,9 +883,12 @@ playground.extend(playground.Mouse.prototype, playground.Events.prototype);
 
 /* Touch */
 
-playground.Touch = function(element) {
+playground.Touch = function(parent, element) {
 
   playground.Events.call(this);
+
+  this.parent = parent;
+
 
   this.element = element;
 
@@ -804,6 +938,7 @@ playground.Touch.prototype = {
   },
 
   touchmove: function(e) {
+
     for (var i = 0; i < e.changedTouches.length; i++) {
 
       var touch = e.changedTouches[i];
@@ -812,7 +947,7 @@ playground.Touch.prototype = {
       this.y = this.touchmoveEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
       this.touchmoveEvent.original = touch;
-      this.touchmoveEvent.id = touch.identifier;
+      this.touchmoveEvent.identifier = touch.identifier;
 
       this.touches[touch.identifier].x = this.touchmoveEvent.x;
       this.touches[touch.identifier].y = this.touchmoveEvent.y;
@@ -833,7 +968,7 @@ playground.Touch.prototype = {
       this.y = this.touchstartEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
       this.touchstartEvent.original = e.touch;
-      this.touchstartEvent.id = touch.identifier;
+      this.touchstartEvent.identifier = touch.identifier;
 
       this.touches[touch.identifier] = {
         x: this.touchstartEvent.x,
@@ -841,6 +976,7 @@ playground.Touch.prototype = {
       };
 
       this.pressed = true;
+
 
       this.trigger("touchstart", this.touchstartEvent);
     }
@@ -856,7 +992,7 @@ playground.Touch.prototype = {
       this.touchendEvent.y = this.touchmoveEvent.y;
 
       this.touchendEvent.original = touch;
-      this.touchendEvent.id = touch.identifier;
+      this.touchendEvent.identifier = touch.identifier;
 
       delete this.touches[touch.identifier];
 
@@ -1514,7 +1650,7 @@ Playground.SoundInterface = {
 
 };
 
-Playground.Sound = function(parent) {
+Playground.Sound = function(parent, audioContext) {
 
   this.parent = parent;
 
@@ -1524,11 +1660,7 @@ Playground.Sound = function(parent) {
   if (canPlayMp3) this.audioFormat = "mp3";
   else this.audioFormat = "ogg";
 
-  var audioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
-
-  if (!playground.audioContext) playground.audioContext = new audioContext;
-
-  this.context = playground.audioContext;
+  this.context = audioContext;
 
   this.gainNode = this.context.createGain()
   this.gainNode.connect(this.context.destination);
@@ -1540,15 +1672,18 @@ Playground.Sound = function(parent) {
 
   this.gainNode.gain.value = 1.0;
 
-  this.buffers = [];
   this.pool = [];
   this.volume = 1.0;
 
   this.setMasterPosition(0, 0, 0);
 
+  this.loops = [];
+
 };
 
 Playground.Sound.prototype = {
+
+  buffers: {},
 
   setMaster: function(volume) {
 
@@ -1664,7 +1799,6 @@ Playground.Sound.prototype = {
 
     this.setPosition(bufferSource, this.masterPosition.x, this.masterPosition.y, this.masterPosition.z);
 
-
     return bufferSource;
   },
 
@@ -1698,11 +1832,73 @@ Playground.Sound.prototype = {
 
   },
 
+
+  getVolume: function(sound) {
+
+    if (!sound) return;
+
+    return sound.gainNode.gain.value;
+  },
+
   setVolume: function(sound, volume) {
 
     if (!sound) return;
 
     return sound.gainNode.gain.value = Math.max(0, volume);
+  },
+
+  fadeOut: function(sound) {
+
+    if (!sound) return;
+
+    sound.fadeOut = true;
+
+    this.loops.push(sound);
+
+    return sound;
+
+  },
+
+  fadeIn: function(sound) {
+
+    if (!sound) return;
+
+    sound.fadeIn = true;
+
+    this.loops.push(sound);
+
+    return sound;
+    
+  },
+
+  step: function(delta) {
+
+    for (var i = 0; i < this.loops.length; i++) {
+
+      var loop = this.loops[i];
+
+      if (loop.fadeIn) {
+        var volume = this.getVolume(loop);
+        volume = this.setVolume(loop, Math.min(1.0, volume + delta * 0.5));
+
+        if (volume >= 1.0) {
+          this.loops.splice(i--, 1);
+          this.stop(loop);
+        }
+      }
+
+      if (loop.fadeOut) {
+        var volume = this.getVolume(loop);
+        volume = this.setVolume(loop, Math.min(1.0, volume - delta * 0.5));
+
+        if (volume <= 0) {
+          this.loops.splice(i--, 1);
+          this.stop(loop);
+        }
+      }
+
+    }
+
   }
 
 };
@@ -1719,15 +1915,19 @@ Playground.SoundFallback = function(parent) {
   if (canPlayMp3) this.audioFormat = "mp3";
   else this.audioFormat = "ogg";
 
-  this.samples = {};
-
 };
 
 Playground.SoundFallback.prototype = {
 
+  samples: {},
+
   setMaster: function(volume) {
 
     this.volume = volume;
+
+  },
+
+  setMasterPosition: function() {
 
   },
 
@@ -1737,36 +1937,30 @@ Playground.SoundFallback.prototype = {
 
   load: function(file) {
 
-    var filename = arg;
+    var url = "sounds/" + file + "." + this.audioFormat;
 
     var loader = this.parent.loader;
 
-    var key = filename;
+    this.parent.loader.add(url);
 
-    filename += "." + this.audioFormat;
-
-    var path = "sounds/" + filename;
-
-    this.loader.add(path);
-
-    var audio = this.samples[key] = new Audio;
+    var audio = this.samples[file] = new Audio;
 
     audio.addEventListener("canplay", function() {
-      loader.ready(path);
+      loader.ready(url);
     });
 
     audio.addEventListener("error", function() {
-      loader.error(path);
+      loader.error(url);
     });
 
-    audio.src = path;
+    audio.src = url;
 
 
   },
 
   play: function(key, loop) {
 
-    var sound = this.sounds[key];
+    var sound = this.samples[key];
 
     sound.currentTime = 0;
     sound.loop = loop;
@@ -1781,6 +1975,10 @@ Playground.SoundFallback.prototype = {
     if (!what) return;
 
     what.pause();
+
+  },
+
+ step: function(delta) {
 
   },
 
