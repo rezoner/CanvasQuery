@@ -1,13 +1,14 @@
 /*     
-  Canvas Query 1.14
+  Canvas Query 1.2
   http://canvasquery.org
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
 
-  + wrappedText lineHeight
-  + cq.color mix
+    + stars
+  + atlas
 
 */
+
 
 (function() {
 
@@ -95,6 +96,37 @@
     } else {
       return Math.abs(x1 - y1);
     }
+  };
+
+  /* fast.js */
+
+  cq.fastApply = function(subject, thisContext, args) {
+
+    switch (args.length) {
+      case 0:
+        return subject.call(thisContext);
+      case 1:
+        return subject.call(thisContext, args[0]);
+      case 2:
+        return subject.call(thisContext, args[0], args[1]);
+      case 3:
+        return subject.call(thisContext, args[0], args[1], args[2]);
+      case 4:
+        return subject.call(thisContext, args[0], args[1], args[2], args[3]);
+      case 5:
+        return subject.call(thisContext, args[0], args[1], args[2], args[3], args[4]);
+      case 6:
+        return subject.call(thisContext, args[0], args[1], args[2], args[3], args[4], args[5]);
+      case 7:
+        return subject.call(thisContext, args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+      case 8:
+        return subject.call(thisContext, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+      case 9:
+        return subject.call(thisContext, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+      default:
+        return subject.apply(thisContext, args);
+    }
+
   };
 
   cq.extend(cq, {
@@ -398,8 +430,11 @@
   cq.Layer = function(canvas) {
     this.context = canvas.getContext("2d");
     this.canvas = canvas;
+    this.alignX = 0;
+    this.alignY = 0;
+    this.aligned = false;
     this.update();
-  }
+  };
 
   cq.Layer.prototype = {
 
@@ -434,6 +469,142 @@
 
     ra: function() {
       return this.a(this.previousAlpha);
+    },
+    /*
+        drawImage: function() {
+
+          if (!this.alignX && !this.alignY) {
+            this.context.call
+          }
+
+            return this;
+
+
+        },
+
+        restore: function() {
+          this.context.restore();
+          this.alignX = 0;
+          this.alignY = 0;
+        },
+        */
+
+    realign: function() {
+
+      this.alignX = this.prevAlignX;
+      this.alignY = this.prevAlignY;
+
+      return this;
+
+    },
+
+    align: function(x, y) {
+
+      if (typeof y === "undefined") y = x;
+
+      this.alignX = x;
+      this.alignY = y;
+
+      return this;
+    },
+
+
+    /* save translate align rotate scale */
+
+    stars: function(x, y, alignX, alignY, rotation, scaleX, scaleY) {
+
+      if (typeof alignX === "undefined") alignX = 0.5;
+      if (typeof alignY === "undefined") alignY = 0.5;
+      if (typeof rotation === "undefined") rotation = 0;
+      if (typeof scaleX === "undefined") scaleX = 1.0;
+      if (typeof scaleY === "undefined") scaleY = scaleX;
+
+      this.save();
+      this.translate(x, y);
+      this.align(alignX, alignY);
+      this.rotate(rotation);
+      this.scale(scaleX, scaleY);
+
+      return this;
+    },
+
+    tars: function(x, y, alignX, alignY, rotation, scaleX, scaleY) {
+
+      if (typeof alignX === "undefined") alignX = 0.5;
+      if (typeof alignY === "undefined") alignY = 0.5;
+      if (typeof rotation === "undefined") rotation = 0;
+      if (typeof scaleX === "undefined") scaleX = 1.0;
+      if (typeof scaleY === "undefined") scaleY = scaleX;
+
+      this.translate(x, y);
+      this.align(alignX, alignY);
+      this.rotate(rotation);
+      this.scale(scaleX, scaleY);
+
+      return this;
+
+    },
+
+    drawImage: function() {
+
+
+      if (this.alignX || this.alignY) {
+        if (arguments.length === 3) {
+          arguments[1] -= arguments[0].width * this.alignX | 0;
+          arguments[2] -= arguments[0].height * this.alignY | 0;
+        } else if (arguments.length === 9) {
+          arguments[5] -= arguments[7] * this.alignX | 0;
+          arguments[6] -= arguments[8] * this.alignY | 0;
+        }
+      }
+
+      cq.fastApply(this.context.drawImage, this.context, arguments);
+
+      return this;
+
+    },
+
+    save: function() {
+      this.prevAlignX = this.alignX;
+      this.prevAlignY = this.alignY;
+
+      this.context.save();
+
+      return this;
+    },
+
+    restore: function() {
+
+      this.realign();
+      this.context.restore();
+      return this;
+    },
+
+    drawAtlasFrame: function(atlas, frame, x, y) {
+      var frame = atlas.frames[frame];
+
+      this.drawRegion(
+        atlas.image,
+        frame.region, -frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, -frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
+      );
+      return this;
+
+      this.fillStyle("#f00").fillRect(x, y, 3, 3);
+      var frame = atlas.frames[frame];
+      alignX = alignX || 0;
+      alignY = alignY || 0;
+      // this.save();
+      // this.translate(x, y);
+      // this.layer.translate();
+      //this.rotate(r);
+
+      this.drawRegion(
+        atlas.image,
+        frame.region, -frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, -frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
+      );
+
+      //this.restore();
+
     },
 
     drawRegion: function(image, region, x, y, scale) {
@@ -1392,6 +1563,22 @@
       }
     },
 
+    strokeLine: function(x1, y1, x2, y2) {
+
+      this.beginPath();
+
+      if (typeof x2 === "undefined") {
+        this.moveTo(x1.x, x1.y);
+        this.lineTo(y1.x, y1.y);
+      } else {
+        this.moveTo(x1, y1);
+        this.lineTo(x2, y2);
+      }
+
+      this.stroke();
+
+    },
+
     setLineDash: function(dash) {
       if (this.context.setLineDash) {
         this.context.setLineDash(dash);
@@ -1453,9 +1640,20 @@
   for (var i = 0; i < methods.length; i++) {
     var name = methods[i];
 
-    // this.debug = true;
-
     if (cq.Layer.prototype[name]) continue;
+
+    cq.Layer.prototype[name] = (function(method) {
+
+      return function() {
+        cq.fastApply(method, this.context, arguments);
+        return this;
+      }
+
+    })(CanvasRenderingContext2D.prototype[name]);
+
+
+    continue;
+
 
     if (!this.debug) {
       // if (!cq.Layer.prototype[name]) cq.Layer.prototype[name] = Function("this.context." + name + ".apply(this.context, arguments); return this;");
@@ -1465,7 +1663,10 @@
       (function(name) {
 
         cq.Layer.prototype[name] = function() {
-          this.context[name].apply(this.context, arguments);
+          // this.context[name].apply(this.context, arguments);
+
+          cq.fastApply(this.context[name], this.context, arguments);
+
           return this;
         }
 
@@ -1666,7 +1867,7 @@
       return this;
     },
 
-	mix: function(color, amount) {
+    mix: function(color, amount) {
       color = cq.color(color);
 
       for (var i = 0; i < 4; i++)
@@ -1696,5 +1897,6 @@
     return cq(img);
   }
 
+  return cq;
 
 })();
