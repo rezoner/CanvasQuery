@@ -1,10 +1,11 @@
 /*     
-  Canvas Query 1.2
-  http://canvasquery.org
+
+  Canvas Query 1.20
+  http://canvasquery.com
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
 
-    + stars
+  + stars
   + atlas
 
 */
@@ -580,30 +581,20 @@
       return this;
     },
 
+    drawTile: function(image, x, y, frameX, frameY, frameWidth, frameHeight, frames, frame) {
+
+    },
+
     drawAtlasFrame: function(atlas, frame, x, y) {
+
       var frame = atlas.frames[frame];
 
       this.drawRegion(
         atlas.image,
         frame.region, -frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, -frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
       );
+
       return this;
-
-      this.fillStyle("#f00").fillRect(x, y, 3, 3);
-      var frame = atlas.frames[frame];
-      alignX = alignX || 0;
-      alignY = alignY || 0;
-      // this.save();
-      // this.translate(x, y);
-      // this.layer.translate();
-      //this.rotate(r);
-
-      this.drawRegion(
-        atlas.image,
-        frame.region, -frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, -frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
-      );
-
-      //this.restore();
 
     },
 
@@ -1608,6 +1599,107 @@
 
     getImageData: function() {
       return this.context.getImageData.apply(this.context, arguments);
+    },
+
+    /* If you think that I am retarded because I use fillRect to set 
+       pixels - read about premultipled alpha in canvas */
+
+    writeMeta: function(data) {
+
+      var json = JSON.stringify(data);
+
+      json = encodeURIComponent(json);
+
+      var bytes = [];
+
+      for (var i = 0; i < json.length; i++) {
+        bytes.push(json.charCodeAt(i));
+        //      console.log(json[i])
+      }
+
+      bytes.push(127);
+
+      var x = this.width - 1;
+      var y = this.height - 1;
+
+      var pixel = [];
+
+      while (bytes.length) {
+
+        var byte = bytes.shift();
+
+        pixel.unshift(byte * 2);
+        //        console.log(x + String.fromCharCode(byte), byte);
+
+        if (!bytes.length)
+          for (var i = 0; i < 3 - pixel.length; i++) pixel.unshift(254);
+
+        if (pixel.length === 3) {
+          this.fillStyle(cq.color(pixel).toRgb()).fillRect(x, y, 1, 1);
+          pixel = [];
+          x--;
+
+          if (x < 0) {
+            y--;
+            x = this.width - 1;
+          }
+        }
+      }
+
+      return this;
+
+    },
+
+    readMeta: function() {
+
+      var bytes = [];
+
+      var x = this.width - 1;
+      var y = this.height - 1;
+
+      while (true) {
+        var pixel = this.getPixel(x, y);
+
+        var stop = false;
+
+        for (var i = 0; i < 3; i++) {
+
+          if (pixel[2 - i] === 254) stop = true;
+
+          else bytes.push(pixel[2 - i] / 2 | 0);
+
+        }
+
+        if (stop) break;
+
+        x--;
+
+        if (x < 0) {
+          y--;
+          x = this.width - 1;
+          break;
+        }
+      }
+
+
+      var json = "";
+
+      while (bytes.length) {
+        json += String.fromCharCode(bytes.shift());
+      }
+
+      var data = false;
+
+      console.log(json);
+
+      try {
+        data = JSON.parse(decodeURIComponent(json));
+      } catch (e) {
+
+      }
+
+      return data;
+
     },
 
     get width() {
