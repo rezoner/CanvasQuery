@@ -1,12 +1,14 @@
 /*     
 
-  Canvas Query 1.20
+  Canvas Query 1.21
   http://canvasquery.com
   (c) 2012-2014 http://rezoner.net
   Canvas Query may be freely distributed under the MIT license.
 
   + stars
   + atlas
+
+  ! fixed x, y atlas frame
 
 */
 
@@ -591,7 +593,8 @@
 
       this.drawRegion(
         atlas.image,
-        frame.region, -frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, -frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
+        frame.region,
+        x - frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, y - frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
       );
 
       return this;
