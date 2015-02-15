@@ -1,6 +1,6 @@
 /*     
 
-  Playground 1.41
+  Playground 1.42
 
   http://canvasquery.com
 
@@ -813,10 +813,10 @@ playground.Mouse.prototype = {
     }
 
     if (this.parent.mouseToTouch) {
-      if (this.left) {
+//      if (this.left) {
         this.mousemoveEvent.identifier = this.parent.keyboard.keys.ctrl ? 1 : 0;
         this.trigger("touchmove", this.mousemoveEvent);
-      }
+//      }
     } else {
       this.trigger("mousemove", this.mousemoveEvent);
     }
@@ -868,6 +868,7 @@ playground.Mouse.prototype = {
     this.mousewheelEvent.y = this.mousemoveEvent.y;
     this.mousewheelEvent.button = ["none", "left", "middle", "right"][e.button];
     this.mousewheelEvent.original = e;
+    this.mousewheelEvent.identifier = 0;
 
     this[e.button] = false;
 
@@ -1042,8 +1043,8 @@ playground.Touch.prototype = {
 
       var touch = e.changedTouches[i];
 
-      this.touchendEvent.x = this.touchmoveEvent.x;
-      this.touchendEvent.y = this.touchmoveEvent.y;
+      this.x = this.touchendEvent.x = (touch.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
+      this.y = this.touchendEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
       this.touchendEvent.original = touch;
       this.touchendEvent.identifier = touch.identifier;
