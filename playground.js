@@ -1,6 +1,6 @@
 /*     
 
-  Playground 1.4
+  Playground 1.41
 
   http://canvasquery.com
 
@@ -204,6 +204,7 @@ function Playground(args) {
 
   this.images = {};
   this.atlases = {};
+  this.data = {};
 
   var audioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
 
@@ -360,7 +361,7 @@ Playground.prototype = {
 
   },
 
-loadAtlases: function() {
+  loadAtlases: function() {
 
 
     for (var i = 0; i < arguments.length; i++) {
@@ -386,7 +387,7 @@ loadAtlases: function() {
 
   loadAtlas: function() {
     return this.loadAtlases.apply(this, arguments);
-  },  
+  },
 
   _loadAtlas: function(filename) {
 
@@ -440,7 +441,7 @@ loadAtlases: function() {
 
         atlas.frames.push({
           region: [frame.frame.x, frame.frame.y, frame.frame.w, frame.frame.h],
-          offset: [frame.spriteSourceSize.x, frame.spriteSourceSize.y],
+          offset: [frame.spriteSourceSize.x || 0, frame.spriteSourceSize.y || 0],
           width: frame.sourceSize.w,
           height: frame.sourceSize.h
         });
@@ -453,11 +454,64 @@ loadAtlases: function() {
     request.send();
   },
 
+  /* data/json */
+
+  loadData: function() {
+
+    for (var i = 0; i < arguments.length; i++) {
+
+      var arg = arguments[i];
+
+      if (typeof arg === "object") {
+
+        for (var key in arg) this.loadData(arg[key]);
+
+      } else {
+
+        var filename = arg;
+        var fileinfo = filename.match(/(.*)\..*/);
+        var key = fileinfo ? fileinfo[1] : filename;
+
+        if (!fileinfo) {
+          filename += ".json";
+        }
+
+        var ext = filename.split(".").pop();
+
+        var url = "data/" + filename;
+
+        var sampler = this;
+
+        var request = new XMLHttpRequest();
+
+        var app = this;
+
+        request.open("GET", url, true);
+
+        this.loader.add(url);
+
+        request.onload = function() {
+
+          if (ext === "json") {
+            app.data[key] = JSON.parse(this.responseText);
+          } else {
+            app.data[key] = this.responseText;
+          }
+
+          app.loader.ready(url);
+        }
+
+        request.send();
+
+      }
+    }
+  },
+
   /* images */
 
   loadImage: function() {
     return this.loadImages.apply(this, arguments);
-  },  
+  },
 
   loadImages: function() {
 
@@ -509,7 +563,7 @@ loadAtlases: function() {
 
   loadSound: function() {
     return this.loadSounds.apply(this, arguments);
-  },  
+  },
 
   loadSounds: function() {
 
@@ -1868,7 +1922,7 @@ Playground.Sound.prototype = {
     this.loops.push(sound);
 
     return sound;
-    
+
   },
 
   step: function(delta) {
@@ -1978,7 +2032,7 @@ Playground.SoundFallback.prototype = {
 
   },
 
- step: function(delta) {
+  step: function(delta) {
 
   },
 
