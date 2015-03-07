@@ -1,6 +1,6 @@
 /*     
 
-  Playground 1.42
+  Playground 1.51
 
   http://canvasquery.com
 
@@ -59,7 +59,11 @@ function Playground(args) {
     smoothing: 1,
     scale: 1,
     preventKeyboardDefault: true,
-    preventContextMenu: true
+    preventContextMenu: true,
+    paths: {
+      images: "images/"
+    }
+
   }, args);
 
   if (!this.width || !this.height) this.fitToContainer = true;
@@ -124,6 +128,12 @@ function Playground(args) {
   this.gamepads = new playground.Gamepads();
   this.gamepads.on("event", this.eventsHandler);
 
+  /* tweens */
+
+  this.tweens = new playground.TweenManager(this);
+
+  this.ease = playground.ease;
+
   /* window resize */
 
   window.addEventListener("resize", this.resizeHandler.bind(this));
@@ -154,17 +164,24 @@ function Playground(args) {
     var dt = delta / 1000;
 
     self.delta += dt;
+    self.elapsed = dt;
+
+    self.tweens.step(dt);
 
     if (self.loader.count <= 0) {
 
-      if (self.step) self.step(dt);
-      if (self.state.step) self.state.step(dt);
+      // if (self.step) self.step(dt);
+      // if (self.state.step) self.state.step(dt);
 
-      if (self.render) self.render(dt);
-      if (self.state.render) self.state.render(dt);
+      self.eventsHandler("step", dt)
+      self.eventsHandler("render", dt)
+      self.eventsHandler("postrender", dt)
 
-      if (self.postrender) self.postrender(dt);
-      if (self.state.postrender) self.state.postrender(dt);
+      // if (self.render) self.render(dt);
+      // if (self.state.render) self.state.render(dt);
+
+      // if (self.postrender) self.postrender(dt);
+      // if (self.state.postrender) self.state.postrender(dt);
 
       self.loaderTookScreenshot = false;
 
@@ -251,8 +268,8 @@ Playground.prototype = {
   eventsHandler: function(event, data) {
 
     if (this[event]) this[event](data);
-    if (this.state.proxy) this.state.proxy(event, data);
     if (this.state[event]) this.state[event](data);
+    if (this.state.proxy) this.state.proxy(event, data);
 
   },
 
@@ -327,7 +344,6 @@ Playground.prototype = {
 
     if (!this.loaderTookScreenshot) {
       this.loaderTookScreenshot = true;
-      console.log("screenshot")
       this.screenshot = this.layer.cache();
     }
 
@@ -480,8 +496,6 @@ Playground.prototype = {
 
         var url = "data/" + filename;
 
-        var sampler = this;
-
         var request = new XMLHttpRequest();
 
         var app = this;
@@ -540,7 +554,7 @@ Playground.prototype = {
 
         if (!fileinfo) filename += ".png";
 
-        var path = "images/" + filename;
+        var path = this.paths.images + filename;
 
         this.loader.add(path);
 
@@ -813,10 +827,10 @@ playground.Mouse.prototype = {
     }
 
     if (this.parent.mouseToTouch) {
-//      if (this.left) {
-        this.mousemoveEvent.identifier = this.parent.keyboard.keys.ctrl ? 1 : 0;
-        this.trigger("touchmove", this.mousemoveEvent);
-//      }
+      //      if (this.left) {
+      this.mousemoveEvent.identifier = this.parent.keyboard.keys.ctrl ? 1 : 0;
+      this.trigger("touchmove", this.mousemoveEvent);
+      //      }
     } else {
       this.trigger("mousemove", this.mousemoveEvent);
     }
@@ -1030,9 +1044,6 @@ playground.Touch.prototype = {
         y: this.touchstartEvent.y
       };
 
-      this.pressed = true;
-
-
       this.trigger("touchstart", this.touchstartEvent);
     }
 
@@ -1043,15 +1054,13 @@ playground.Touch.prototype = {
 
       var touch = e.changedTouches[i];
 
-      this.x = this.touchendEvent.x = (touch.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
-      this.y = this.touchendEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
+      this.touchendEvent.x = (touch.pageX - this.elementOffset.x - this.offsetX) / this.scale | 0;
+      this.touchendEvent.y = (touch.pageY - this.elementOffset.y - this.offsetY) / this.scale | 0;
 
       this.touchendEvent.original = touch;
       this.touchendEvent.identifier = touch.identifier;
 
       delete this.touches[touch.identifier];
-
-      this.pressed = false;
 
       this.trigger("touchend", this.touchendEvent);
 
@@ -1346,6 +1355,7 @@ playground.Loader.prototype = {
   },
 
   ready: function(id) {
+
     this.queue--;
 
     this.progress = 1 - this.queue / this.count;
@@ -2056,3 +2066,686 @@ Playground.SoundFallback.prototype = {
 };
 
 playground.extend(Playground.SoundFallback.prototype, Playground.SoundInterface);
+
+/* easing */
+
+/*     
+
+  Ease 1.0
+  
+  http://canvasquery.com
+  
+  (c) 2015 by Rezoner - http://rezoner.net
+
+  `ease` may be freely distributed under the MIT license.
+
+*/
+
+(function() {
+
+  var ease = function(progress, easing) {
+
+    if (typeof ease.cache[easing] === "function") {
+
+      return ease.cache[easing](progress);
+
+    } else {
+
+      return ease.spline(progress, easing || ease.defaultEasing);
+
+    }
+
+  };
+
+  var extend = function() {
+    for (var i = 1; i < arguments.length; i++) {
+      for (var j in arguments[i]) {
+        arguments[0][j] = arguments[i][j];
+      }
+    }
+
+    return arguments[0];
+  };
+
+  extend(ease, {          
+
+    defaultEasing: "016",
+
+    cache: {
+
+      linear: function(t) {
+        return t
+      },
+
+      inQuad: function(t) {
+        return t * t
+      },
+      outQuad: function(t) {
+        return t * (2 - t)
+      },
+      inOutQuad: function(t) {
+        return t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+      },
+      inCubic: function(t) {
+        return t * t * t
+      },
+      outCubic: function(t) {
+        return (--t) * t * t + 1
+      },
+      inOutCubic: function(t) {
+        return t < .5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1
+      },
+      inQuart: function(t) {
+        return t * t * t * t
+      },
+      outQuart: function(t) {
+        return 1 - (--t) * t * t * t
+      },
+      inOutQuart: function(t) {
+        return t < .5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t
+      },
+      inQuint: function(t) {
+        return t * t * t * t * t
+      },
+      outQuint: function(t) {
+        return 1 + (--t) * t * t * t * t
+      },
+      inOutQuint: function(t) {
+        return t < .5 ? 16 * t * t * t * t * t : 1 + 16 * (--t) * t * t * t * t
+      },
+      inSine: function(t) {
+        return -1 * Math.cos(t / 1 * (Math.PI * 0.5)) + 1;
+      },
+      outSine: function(t) {
+        return Math.sin(t / 1 * (Math.PI * 0.5));
+      },
+      inOutSine: function(t) {
+        return -1 / 2 * (Math.cos(Math.PI * t) - 1);
+      },
+      inExpo: function(t) {
+        return (t == 0) ? 0 : Math.pow(2, 10 * (t - 1));
+      },
+      outExpo: function(t) {
+        return (t == 1) ? 1 : (-Math.pow(2, -10 * t) + 1);
+      },
+      inOutExpo: function(t) {
+        if (t == 0) return 0;
+        if (t == 1) return 1;
+        if ((t /= 1 / 2) < 1) return 1 / 2 * Math.pow(2, 10 * (t - 1));
+        return 1 / 2 * (-Math.pow(2, -10 * --t) + 2);
+      },
+      inCirc: function(t) {
+        return -1 * (Math.sqrt(1 - t * t) - 1);
+      },
+      outCirc: function(t) {
+        return Math.sqrt(1 - (t = t - 1) * t);
+      },
+      inOutCirc: function(t) {
+        if ((t /= 1 / 2) < 1) return -1 / 2 * (Math.sqrt(1 - t * t) - 1);
+        return 1 / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1);
+      },
+      inElastic: function(t) {
+        var s = 1.70158;
+        var p = 0;
+        var a = 1;
+        if (t == 0) return 0;
+        if (t == 1) return 1;
+        if (!p) p = 0.3;
+        if (a < 1) {
+          a = 1;
+          var s = p / 4;
+        } else var s = p / (2 * Math.PI) * Math.asin(1 / a);
+        return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t - s) * (2 * Math.PI) / p));
+      },
+      outElastic: function(t) {
+        var s = 1.70158;
+        var p = 0;
+        var a = 1;
+        if (t == 0) return 0;
+        if (t == 1) return 1;
+        if (!p) p = 0.3;
+        if (a < 1) {
+          a = 1;
+          var s = p / 4;
+        } else var s = p / (2 * Math.PI) * Math.asin(1 / a);
+        return a * Math.pow(2, -10 * t) * Math.sin((t - s) * (2 * Math.PI) / p) + 1;
+      },
+      inOutElastic: function(t) {
+        var s = 1.70158;
+        var p = 0;
+        var a = 1;
+        if (t == 0) return 0;
+        if ((t /= 1 / 2) == 2) return 1;
+        if (!p) p = (0.3 * 1.5);
+        if (a < 1) {
+          a = 1;
+          var s = p / 4;
+        } else var s = p / (2 * Math.PI) * Math.asin(1 / a);
+        if (t < 1) return -.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t - s) * (2 * Math.PI) / p));
+        return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t - s) * (2 * Math.PI) / p) * 0.5 + 1;
+      },
+      inBack: function(t, s) {
+        if (s == undefined) s = 1.70158;
+        return 1 * t * t * ((s + 1) * t - s);
+      },
+      outBack: function(t, s) {
+        if (s == undefined) s = 1.70158;
+        return 1 * ((t = t / 1 - 1) * t * ((s + 1) * t + s) + 1);
+      },
+      inOutBack: function(t, s) {
+        if (s == undefined) s = 1.70158;
+        if ((t /= 1 / 2) < 1) return 1 / 2 * (t * t * (((s *= (1.525)) + 1) * t - s));
+        return 1 / 2 * ((t -= 2) * t * (((s *= (1.525)) + 1) * t + s) + 2);
+      },
+      inBounce: function(t) {
+        return 1 - this.outBounce(1 - t);
+      },
+      outBounce: function(t) {
+        if ((t /= 1) < (1 / 2.75)) {
+          return (7.5625 * t * t);
+        } else if (t < (2 / 2.75)) {
+          return (7.5625 * (t -= (1.5 / 2.75)) * t + .75);
+        } else if (t < (2.5 / 2.75)) {
+          return (7.5625 * (t -= (2.25 / 2.75)) * t + .9375);
+        } else {
+          return (7.5625 * (t -= (2.625 / 2.75)) * t + .984375);
+        }
+      },
+      inOutBounce: function(t) {
+        if (t < 1 / 2) return this.inBounce(t * 2) * 0.5;
+        return this.outBounce(t * 2 - 1) * 0.5 + 0.5;
+      }
+    },
+
+    translateEasing: function(key) {
+
+      if (!this.cache[key]) {
+        var array = key.split('');
+
+        var sign = 1;
+        var signed = false;
+
+        for (var i = 0; i < array.length; i++) {
+
+          var char = array[i];
+
+          if (char === "-") {
+            sign = -1;
+            signed = true;
+            array.splice(i--, 1);
+          } else if (char === "+") {
+            sign = 1;
+            array.splice(i--, 1);
+          } else array[i] = parseInt(array[i], 16) * sign;
+
+        }
+
+        var min = Math.min.apply(null, array);
+        var max = Math.max.apply(null, array);
+        var diff = max - min;
+        var cache = [];
+        var normalized = [];
+
+        for (var i = 0; i < array.length; i++) {
+          if (signed) {
+            var diff = Math.max(Math.abs(min), Math.abs(max))
+            normalized.push((array[i]) / diff);
+          } else {
+            var diff = max - min;
+            normalized.push((array[i] - min) / diff);
+          }
+        }
+
+        this.cache[key] = normalized;
+
+      }
+
+      return this.cache[key]
+
+    },
+
+    /* 
+      
+      Cubic-spline interpolation by Ivan Kuckir
+
+      http://blog.ivank.net/interpolation-with-cubic-splines.html
+
+      With slight modifications by Morgan Herlocker
+
+      https://github.com/morganherlocker/cubic-spline
+
+    */
+
+    splineK: {},
+    splineX: {},
+    splineY: {},
+
+    insertIntermediateValues: function(a) {
+      var result = [];
+      for (var i = 0; i < a.length; i++) {
+        result.push(a[i]);
+
+        if (i < a.length - 1) result.push(a[i + 1] + (a[i] - a[i + 1]) * 0.6);
+      }
+
+      return result;
+    },
+
+    spline: function(x, key) {
+
+      if (!this.splineK[key]) {
+
+        var xs = [];
+        var ys = this.translateEasing(key);
+
+        // ys = this.insertIntermediateValues(ys);
+
+        if (!ys.length) return 0;
+
+        for (var i = 0; i < ys.length; i++) xs.push(i * (1 / (ys.length - 1)));
+
+        var ks = xs.map(function() {
+          return 0
+        });
+
+        ks = this.getNaturalKs(xs, ys, ks);
+
+        this.splineX[key] = xs;
+        this.splineY[key] = ys;
+        this.splineK[key] = ks;
+
+      }
+
+      if (x > 1) return this.splineY[key][this.splineY[key].length - 1];
+
+      var ks = this.splineK[key];
+      var xs = this.splineX[key];
+      var ys = this.splineY[key];
+
+      var i = 1;
+
+      while (xs[i] < x) i++;
+
+      var t = (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+      var a = ks[i - 1] * (xs[i] - xs[i - 1]) - (ys[i] - ys[i - 1]);
+      var b = -ks[i] * (xs[i] - xs[i - 1]) + (ys[i] - ys[i - 1]);
+      var q = (1 - t) * ys[i - 1] + t * ys[i] + t * (1 - t) * (a * (1 - t) + b * t);
+
+      /*
+      var py = ys[i - 2];
+      var cy = ys[i - 1];
+      var ny = (i < ys.length - 1) ? ys[i] : ys[i - 1];
+
+      if (q > ny) {
+        var diff = (q - py);
+        //q = py + diff;
+
+      }
+
+    if (cy === ny && cy === py) q = py;
+    */
+
+
+      return q;
+    },
+
+    getNaturalKs: function(xs, ys, ks) {
+      var n = xs.length - 1;
+      var A = this.zerosMat(n + 1, n + 2);
+
+      for (var i = 1; i < n; i++) // rows
+      {
+        A[i][i - 1] = 1 / (xs[i] - xs[i - 1]);
+        A[i][i] = 2 * (1 / (xs[i] - xs[i - 1]) + 1 / (xs[i + 1] - xs[i]));
+        A[i][i + 1] = 1 / (xs[i + 1] - xs[i]);
+        A[i][n + 1] = 3 * ((ys[i] - ys[i - 1]) / ((xs[i] - xs[i - 1]) * (xs[i] - xs[i - 1])) + (ys[i + 1] - ys[i]) / ((xs[i + 1] - xs[i]) * (xs[i + 1] - xs[i])));
+      }
+
+      A[0][0] = 2 / (xs[1] - xs[0]);
+      A[0][1] = 1 / (xs[1] - xs[0]);
+      A[0][n + 1] = 3 * (ys[1] - ys[0]) / ((xs[1] - xs[0]) * (xs[1] - xs[0]));
+
+      A[n][n - 1] = 1 / (xs[n] - xs[n - 1]);
+      A[n][n] = 2 / (xs[n] - xs[n - 1]);
+      A[n][n + 1] = 3 * (ys[n] - ys[n - 1]) / ((xs[n] - xs[n - 1]) * (xs[n] - xs[n - 1]));
+
+      return this.solve(A, ks);
+    },
+
+    solve: function(A, ks) {
+      var m = A.length;
+      for (var k = 0; k < m; k++) // column
+      {
+        // pivot for column
+        var i_max = 0;
+        var vali = Number.NEGATIVE_INFINITY;
+        for (var i = k; i < m; i++)
+          if (A[i][k] > vali) {
+            i_max = i;
+            vali = A[i][k];
+          }
+        this.splineSwapRows(A, k, i_max);
+
+        // for all rows below pivot
+        for (var i = k + 1; i < m; i++) {
+          for (var j = k + 1; j < m + 1; j++)
+            A[i][j] = A[i][j] - A[k][j] * (A[i][k] / A[k][k]);
+          A[i][k] = 0;
+        }
+      }
+      for (var i = m - 1; i >= 0; i--) // rows = columns
+      {
+        var v = A[i][m] / A[i][i];
+        ks[i] = v;
+        for (var j = i - 1; j >= 0; j--) // rows
+        {
+          A[j][m] -= A[j][i] * v;
+          A[j][i] = 0;
+        }
+      }
+      return ks;
+    },
+
+    zerosMat: function(r, c) {
+      var A = [];
+      for (var i = 0; i < r; i++) {
+        A.push([]);
+        for (var j = 0; j < c; j++) A[i].push(0);
+      }
+      return A;
+    },
+
+    splineSwapRows: function(m, k, l) {
+      var p = m[k];
+      m[k] = m[l];
+      m[l] = p;
+    }
+  });
+
+  playground.ease = ease;
+
+})();
+
+/* TweenManager */
+
+playground.Tween = function(parent, context) {
+
+  this.parent = parent;
+  this.context = context;
+
+  playground.extend(this, {
+
+    actions: [],
+    index: -1,
+
+    prevEasing: "045",
+    prevDuration: 0.5
+
+  });
+
+  this.current = false;
+
+};
+
+playground.Tween.prototype = {
+
+  add: function(properties, duration, easing) {
+
+    if (duration) this.prevDuration = duration;
+    else duration = 0.5;
+    if (easing) this.prevEasing = easing;
+    else easing = "045";
+
+    this.actions.push([properties, duration, easing]);
+
+    return this;
+
+  },
+
+  to: function(properties, duration, easing) {
+    return this.add(properties, duration, easing);
+  },
+
+  loop: function() {
+
+    this.looped = true;
+
+    return this;
+
+  },
+
+  repeat: function(times) {
+
+    this.actions.push(["repeat", times]);
+
+  },
+
+  wait: function(time) {
+
+    this.actions.push(["wait", time]);
+
+    return this;
+
+  },
+
+  delay: function(time) {
+
+    this.actions.push(["wait", time]);
+
+  },
+
+  stop: function() {
+
+    this.paused = true;
+
+    return this;
+
+  },
+
+  end: function() {
+
+    this.manager.end(this);
+
+    return this;
+
+  },
+
+  next: function() {
+
+    this.delta = 0;
+
+    this.index++;
+
+    if (this.index >= this.actions.length) {
+
+      if (this.looped) {
+        this.index = 0;
+      } else {
+        this.parent.remove(this);
+        return;
+      }
+    }
+
+    this.current = this.actions[this.index];
+
+    if (this.current[0] === "wait") {
+
+      this.waiting = this.current[1];
+      this.currentAction = "wait";
+
+    } else {
+
+      /* calculate changes */
+
+      var properties = this.current[0];
+
+      /* keep keys as array for 0.0001% performance boost */
+
+      this.keys = Object.keys(properties);
+
+      this.change = [];
+      this.before = [];
+      this.types = [];
+
+      for (i = 0; i < this.keys.length; i++) {
+        var key = this.keys[i];
+
+        if (typeof this.context[key] === "number") {
+          this.before.push(this.context[key]);
+          this.change.push(properties[key] - this.context[key]);
+          this.types.push(0);
+        } else {
+          var before = cq.color(this.context[key]);
+
+          this.before.push(before);
+
+          var after = cq.color(properties[key]);
+
+          var temp = [];
+
+          for (var j = 0; j < 3; j++) {
+            temp.push(after[j] - before[j]);
+          }
+
+          this.change.push(temp);
+
+          this.types.push(1);
+        }
+
+      }
+
+      this.currentAction = "animate";
+
+      this.duration = this.current[1];
+      this.easing = this.current[2];
+
+    }
+
+
+  },
+
+  prev: function() {
+
+  },
+
+  step: function(delta) {
+    this.delta += delta;
+
+    if (!this.current) this.next();
+
+    switch (this.currentAction) {
+
+      case "animate":
+        this.doAnimate(delta);
+        break;
+
+      case "wait":
+        this.doWait(delta);
+        break;
+
+    }
+
+  },
+
+  doAnimate: function(delta) {
+
+    this.progress = Math.min(1, this.delta / this.duration);
+
+    var mod = playground.ease(this.progress, this.easing);
+
+    for (var i = 0; i < this.keys.length; i++) {
+
+      var key = this.keys[i];
+
+      switch (this.types[i]) {
+
+        /* number */
+
+        case 0:
+
+          this.context[key] = this.before[i] + this.change[i] * mod;
+
+          break;
+
+          /* color */
+
+        case 1:
+
+          var change = this.change[i];
+          var before = this.before[i];
+          var color = [];
+
+          for (var j = 0; j < 3; j++) {
+            color.push(before[j] + change[j] * mod | 0);
+          }
+
+          this.context[key] = "rgb(" + color.join(",") + ")";
+
+          break;
+      }
+    }
+
+    if (this.progress >= 1) {
+      this.next();
+    }
+
+  },
+
+  doWait: function(delta) {
+
+    if (this.delta > this.waiting) this.next();
+
+  }
+
+};
+
+playground.TweenManager = function(parent) {
+
+  this.tweens = [];
+
+  if (parent) {
+    this.parent = parent;
+    this.parent.tween = this.tween.bind(this);
+  }
+
+  this.delta = 0;
+
+};
+
+playground.TweenManager.prototype = {
+
+  defaultEasing: "128",
+
+  tween: function(context) {
+
+    var tween = new playground.Tween(this, context);
+
+    this.tweens.push(tween);
+
+    return tween;
+
+  },
+
+  step: function(delta) {
+
+    this.delta += delta;
+
+    for (var i = 0; i < this.tweens.length; i++) {
+
+      var tween = this.tweens[i];
+
+      tween.step(delta);
+
+      if (tween._remove) this.tweens.splice(i--, 1);
+
+    }
+
+  },
+
+  remove: function(tween) {
+
+    tween._remove = true;
+
+  }
+
+};

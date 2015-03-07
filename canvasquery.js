@@ -1,14 +1,14 @@
 /*     
 
-  Canvas Query 1.21
+  Canvas Query 1.24
+  
   http://canvasquery.com
-  (c) 2012-2014 http://rezoner.net
+  
+  (c) 2012-2015 http://rezoner.net
+  
   Canvas Query may be freely distributed under the MIT license.
 
-  + stars
-  + atlas
-
-  ! fixed x, y atlas frame
+  ! fixed color parsers
 
 */
 
@@ -1571,6 +1571,8 @@
 
       this.stroke();
 
+      return this;
+
     },
 
     setLineDash: function(dash) {
@@ -1882,7 +1884,8 @@
 
     fromHsl: function() {
       var components = arguments[0] instanceof Array ? arguments[0] : arguments;
-      var color = cq.hslToRgb(components[0], components[1], components[2]);
+
+      var color = cq.hslToRgb(parseFloat(components[0]), parseFloat(components[1]), parseFloat(components[2]));
 
       this[0] = color[0];
       this[1] = color[1];
@@ -1892,7 +1895,7 @@
 
     fromHsv: function() {
       var components = arguments[0] instanceof Array ? arguments[0] : arguments;
-      var color = cq.hsvToRgb(components[0], components[1], components[2]);
+      var color = cq.hsvToRgb(parseFloat(components[0]), parseFloat(components[1]), parseFloat(components[2]));
 
       this[0] = color[0];
       this[1] = color[1];
