@@ -1,6 +1,6 @@
 /*     
 
-  Playground 1.51
+  Playground 1.52
 
   http://canvasquery.com
 
@@ -2536,17 +2536,49 @@ playground.Tween.prototype = {
 
   stop: function() {
 
-    this.paused = true;
+    this.parent.remove(this);
 
     return this;
 
   },
 
-  end: function() {
+  play: function() {
 
-    this.manager.end(this);
+    this.parent.add(this);
 
     return this;
+
+  },
+
+
+  end: function() {
+
+    var lastAnimationIndex = 0;
+
+    for (var i = this.index + 1; i < this.actions.length; i++) {
+      if (typeof this.actions[i][0] === "object") lastAnimationIndex = i;
+    }
+
+    this.index = lastAnimationIndex - 1;
+    this.next();
+    this.delta = this.duration;
+    this.step(0);
+
+    return this;
+
+  },
+
+  forward: function() {
+
+    this.delta = this.duration;
+    this.step(0);
+
+  },
+
+  rewind: function() {
+
+    this.delta = 0;
+    this.step(0);
 
   },
 
@@ -2570,7 +2602,7 @@ playground.Tween.prototype = {
 
     if (this.current[0] === "wait") {
 
-      this.waiting = this.current[1];
+      this.duration = this.current[1];
       this.currentAction = "wait";
 
     } else {
@@ -2693,7 +2725,7 @@ playground.Tween.prototype = {
 
   doWait: function(delta) {
 
-    if (this.delta > this.waiting) this.next();
+    if (this.delta >= this.duration) this.next();
 
   }
 
@@ -2720,7 +2752,7 @@ playground.TweenManager.prototype = {
 
     var tween = new playground.Tween(this, context);
 
-    this.tweens.push(tween);
+    this.add(tween);
 
     return tween;
 
@@ -2739,6 +2771,16 @@ playground.TweenManager.prototype = {
       if (tween._remove) this.tweens.splice(i--, 1);
 
     }
+
+  },
+
+  add: function(tween) {
+
+    tween._remove = false;
+
+    var index = this.tweens.indexOf(tween);
+
+    if (index === -1) this.tweens.push(tween);
 
   },
 
