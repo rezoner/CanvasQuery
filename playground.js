@@ -163,8 +163,8 @@ function Playground(args) {
 
     var dt = delta / 1000;
 
-    self.delta += dt;
-    self.elapsed = dt;
+    self.delta = dt;
+    self.elapsed += dt;
 
     self.tweens.step(dt);
 
