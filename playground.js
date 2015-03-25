@@ -1,12 +1,14 @@
 /*     
 
-  Playground 1.52
+  Playground 1.56
 
   http://canvasquery.com
 
-  (c) 2012-2014 http://rezoner.net
+  (c) 2012-2015 http://rezoner.net
 
   Playground may be freely distributed under the MIT license.
+
+  + sound alias
 
 */
 
@@ -106,14 +108,14 @@ function Playground(args) {
 
   /* mouse */
 
-  this.mouse = new playground.Mouse(this, canvas);
+  this.mouse = new playground.Mouse(this, this.container);
   this.mouse.on("event", this.eventsHandler);
 
   this.mouse.preventContextMenu = this.preventContextMenu;
 
   /* touch */
 
-  this.touch = new playground.Touch(this, canvas);
+  this.touch = new playground.Touch(this, this.container);
   this.touch.on("event", this.eventsHandler);
 
   /* keyboard */
@@ -146,6 +148,8 @@ function Playground(args) {
 
   /* game loop */
 
+  this.lifetime = 0;
+  this.elapsed = 0;
   this.delta = 0;
 
   var self = this;
@@ -163,8 +167,9 @@ function Playground(args) {
 
     var dt = delta / 1000;
 
-    self.delta += dt;
+    self.lifetime += dt;
     self.elapsed = dt;
+    self.delta = dt;
 
     self.tweens.step(dt);
 
@@ -908,6 +913,7 @@ playground.Mouse.prototype = {
           absDelta = 0,
           absDeltaXY = 0,
           fn;
+
         event.type = "mousewheel";
 
         // Old school scrollwheel delta
@@ -1749,6 +1755,17 @@ Playground.Sound = function(parent, audioContext) {
 Playground.Sound.prototype = {
 
   buffers: {},
+  aliases: {},
+
+  alias: function(alias, source, volume, rate) {
+
+    this.aliases[alias] = {
+      source: source,
+      volume: volume,
+      rate: rate
+    };
+
+  },
 
   setMaster: function(volume) {
 
@@ -1842,7 +1859,11 @@ Playground.Sound.prototype = {
 
   play: function(name, loop) {
 
+    var alias = this.aliases[name];
+
     var nodes = this.getSoundBuffer();
+
+    if(alias) name = alias.source;
 
     bufferSource = nodes[0];
     bufferSource.gainNode = nodes[1];
@@ -1851,12 +1872,16 @@ Playground.Sound.prototype = {
     bufferSource.loop = loop || false;
     bufferSource.key = name;
 
+    bufferSource.alias = alias;
+
+    this.setVolume(bufferSource, 1.0);
+    this.setPlaybackRate(bufferSource, 1.0);
+
     if (this.loop) {
       //  bufferSource.loopStart = this.loopStart;
       // bufferSource.loopEnd = this.loopEnd;
     }
 
-    bufferSource.gainNode.gain.value = 1.0;
 
     bufferSource.start(0);
 
@@ -1879,6 +1904,8 @@ Playground.Sound.prototype = {
 
     if (!sound) return;
 
+    if (sound.alias) rate *= sound.alias.rate;
+
     return sound.playbackRate.value = rate;
   },
 
@@ -1897,17 +1924,19 @@ Playground.Sound.prototype = {
 
   },
 
-
   getVolume: function(sound) {
 
     if (!sound) return;
 
     return sound.gainNode.gain.value;
+
   },
 
   setVolume: function(sound, volume) {
 
     if (!sound) return;
+
+    if (sound.alias) volume *= sound.alias.volume;
 
     return sound.gainNode.gain.value = Math.max(0, volume);
   },
