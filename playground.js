@@ -262,7 +262,7 @@ Playground.prototype = {
   setState: function(state) {
     state.app = this;
 
-    if (this.state) this.screenshot = app.layer.cache();
+    if (this.state) this.screenshot = this.layer.cache();
     if (this.state && this.state.leave) this.state.leave();
 
     this.state = state;
