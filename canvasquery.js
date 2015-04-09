@@ -1,6 +1,6 @@
 /*     
 
-  Canvas Query 1.24
+  Canvas Query r2
   
   http://canvasquery.com
   
@@ -16,17 +16,10 @@
 (function() {
 
   var COCOONJS = false;
-  var NODEJS = !(typeof exports === "undefined");
 
-  if (NODEJS) {
-    var Canvas = require('canvas');
-    var Image = Canvas.Image;
-    var fs = require("fs");
-  } else {
-    var Canvas = window.HTMLCanvasElement;
-    var Image = window.HTMLImageElement;
-    var COCOONJS = navigator.isCocoonJS;
-  }
+  var Canvas = window.HTMLCanvasElement;
+  var Image = window.HTMLImageElement;
+  var COCOONJS = navigator.isCocoonJS;
 
   var cq = function(selector) {
     if (arguments.length === 0) {
@@ -388,11 +381,7 @@
     },
 
     createCanvas: function(width, height) {
-      if (NODEJS) {
-        var result = new Canvas;
-      } else {
-        var result = document.createElement("canvas");
-      }
+      var result = document.createElement("canvas");
 
       if (arguments[0] instanceof Image || arguments[0] instanceof Canvas) {
         var image = arguments[0];
@@ -442,12 +431,17 @@
   cq.Layer.prototype = {
 
     update: function() {
-      this.context.webkitImageSmoothingEnabled = cq.smoothing;
-      this.context.mozImageSmoothingEnabled = cq.smoothing;
-      this.context.msImageSmoothingEnabled = cq.smoothing;
-      this.context.imageSmoothingEnabled = cq.smoothing;
 
-      if (COCOONJS) Cocoon.Utils.setAntialias(cq.smoothing);
+      var smoothing = cq.smoothing;
+
+      if (typeof this.smoothing !== "undefined") smoothing = this.smoothing;
+
+      this.context.webkitImageSmoothingEnabled = smoothing;
+      this.context.mozImageSmoothingEnabled = smoothing;
+      this.context.msImageSmoothingEnabled = smoothing;
+      this.context.imageSmoothingEnabled = smoothing;
+
+      if (COCOONJS) Cocoon.Utils.setAntialias(smoothing);
     },
 
     appendTo: function(selector) {
@@ -548,8 +542,20 @@
 
     },
 
-    drawImage: function() {
+    fillRect: function() {
 
+      if (this.alignX || this.alignY) {
+        arguments[0] -= arguments[2] * this.alignX | 0;
+        arguments[1] -= arguments[3] * this.alignY | 0;
+      }
+
+      cq.fastApply(this.context.fillRect, this.context, arguments);
+
+      return this;
+
+    },
+
+    drawImage: function() {
 
       if (this.alignX || this.alignY) {
         if (arguments.length === 3) {
@@ -598,6 +604,18 @@
       );
 
       return this;
+
+    },
+
+
+    imageFill: function(image, width, height) {
+
+      var scale = Math.max(width / image.width, height / image.height);
+
+      this.save();
+      this.scale(scale, scale);
+      this.drawImage(image, 0, 0);
+      this.restore();
 
     },
 
@@ -674,7 +692,6 @@
 
       return this;
     },
-
 
     textWithBackground: function(text, x, y, background, padding) {
       var w = this.measureText(text).width;
@@ -1976,24 +1993,8 @@
 
   };
 
-  if (NODEJS)
-    global["cq"] = global["CanvasQuery"] = cq;
-  else
-    window["cq"] = window["CanvasQuery"] = cq;
+  window["cq"] = window["CanvasQuery"] = cq;
 
-
-  /* nodejs specific stuff */
-
-  cq.Layer.prototype.saveAsPNG = function(path) {
-    fs.writeFileSync(path, this.canvas.toBuffer());
-  }
-
-  cq.loadFromFile = function(path) {
-    var buffer = fs.readFileSync(path);
-    var img = new Image;
-    img.src = buffer;
-    return cq(img);
-  }
 
   return cq;
 
