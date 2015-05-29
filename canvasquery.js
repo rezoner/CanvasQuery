@@ -1534,12 +1534,6 @@
 
     setPixel: function(color, x, y) {
 
-      /* fillRect is slow! */
-
-      return this.fillStyle(color).fillRect(x, y, 1, 1);
-
-      /* this is how it should work - but it does not */
-
       color = cq.color(color);
 
       var pixel = this.createImageData(1, 1);
@@ -1547,7 +1541,7 @@
       pixel.data[0] = color[0];
       pixel.data[1] = color[1];
       pixel.data[2] = color[2];
-      pixel.data[3] = 1.0;
+      pixel.data[3] = 255; // 0 - fully transparent, 255 - absolute opaque
 
       this.putImageData(pixel, x, y);
 
