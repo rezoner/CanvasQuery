@@ -1,6 +1,6 @@
 /*     
 
-  Canvas Query r2
+  Canvas Query r6
   
   http://canvasquery.com
   
@@ -8,7 +8,20 @@
   
   Canvas Query may be freely distributed under the MIT license.
 
-  ! fixed color parsers
+  r6
+
+  + ImageBitmap support
+  + drawImageCentered
+  + drawImageRegionCentered
+  + default textBaseline
+  + resizeBounds
+
+  r5
+
+  ! fixed: leaking arguments in fastApply bailing out optimization 
+  + cacheText
+  + compare
+  + checkerboard
 
 */
 
@@ -19,25 +32,44 @@
 
   var Canvas = window.HTMLCanvasElement;
   var Image = window.HTMLImageElement;
+  var ImageBitmap = window.ImageBitmap || window.HTMLImageElement;
   var COCOONJS = navigator.isCocoonJS;
 
   var cq = function(selector) {
+
     if (arguments.length === 0) {
+
       var canvas = cq.createCanvas(window.innerWidth, window.innerHeight);
+
       window.addEventListener("resize", function() {
         // canvas.width = window.innerWidth;
         // canvas.height = window.innerHeight;
       });
+
     } else if (typeof selector === "string") {
+
       var canvas = document.querySelector(selector);
+
     } else if (typeof selector === "number") {
+
       var canvas = cq.createCanvas(arguments[0], arguments[1]);
+
     } else if (selector instanceof Image) {
+
       var canvas = cq.createCanvas(selector);
+
+    } else if (selector instanceof ImageBitmap) {
+
+      var canvas = cq.createCanvas(selector);
+
     } else if (selector instanceof cq.Layer) {
+
       return selector;
+
     } else {
+
       var canvas = selector;
+
     }
 
     return new cq.Layer(canvas);
@@ -45,6 +77,20 @@
 
   cq.lineSpacing = 1.0;
   cq.defaultFont = "Arial";
+  cq.textBaseline = "alphabetic";
+
+  cq.palettes = {
+
+    db16: ["#140c1c", "#442434", "#30346d", "#4e4a4e", "#854c30", "#346524", "#d04648", "#757161", "#597dce", "#d27d2c", "#8595a1", "#6daa2c", "#d2aa99", "#6dc2ca", "#dad45e", "#deeed6"],
+    db32: ["#000000", "#222034", "#45283c", "#663931", "#8f563b", "#df7126", "#d9a066", "#eec39a", "#fbf236", "#99e550", "#6abe30", "#37946e", "#4b692f", "#524b24", "#323c39", "#3f3f74", "#306082", "#5b6ee1", "#639bff", "#5fcde4", "#cbdbfc", "#ffffff", "#9badb7", "#847e87", "#696a6a", "#595652", "#76428a", "#ac3232", "#d95763", "#d77bba", "#8f974a", "#8a6f30"],
+    c64: ["#000000", "#6a5400", "#68ae5c", "#8a8a8a", "#adadad", "#636363", "#c37b75", "#c9d684", "#ffffff", "#984b43", "#a3e599", "#79c1c8", "#9b6739", "#9b51a5", "#52429d", "#8a7bce"],
+    gameboy: ["#0f380f", "#306230", "#8bac0f", "#9bbc0f"],
+    sega: ["#000000", "#555500", "#005500", "#555555", "#55aa00", "#550000", "#aaffaa", "#aaaaaa", "#ff5555", "#005555", "#550055", "#aaaa55", "#ffffaa", "#aa5555", "#ffaa55", "#ffff55", "#ffffff", "#ffaaaa", "#000055", "#55aaaa", "#aa0000", "#ff5500", "#ffaa00", "#aa5500", "#ff0000", "#ffaaff", "#aa55aa", "#aaaa00", "#aaff00", "#aaaaff", "#5555aa", "#aaffff"],
+    cga: ["#000000", "#ff5555", "#55ff55", "#ffff55"],
+    nes: ["#7C7C7C", "#0000FC", "#0000BC", "#4428BC", "#940084", "#A80020", "#A81000", "#881400", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000", "#000000", "#000000", "#BCBCBC", "#0078F8", "#0058F8", "#6844FC", "#D800CC", "#E40058", "#F83800", "#E45C10", "#AC7C00", "#00B800", "#00A800", "#00A844", "#008888", "#000000", "#000000", "#000000", "#F8F8F8", "#3CBCFC", "#6888FC", "#9878F8", "#F878F8", "#F85898", "#F87858", "#FCA044", "#F8B800", "#B8F818", "#58D854", "#58F898", "#00E8D8", "#787878", "#000000", "#000000", "#FCFCFC", "#A4E4FC", "#B8B8F8", "#D8B8F8", "#F8B8F8", "#F8A4C0", "#F0D0B0", "#FCE0A8", "#F8D878", "#D8F878", "#B8F8B8", "#B8F8D8", "#00FCFC", "#F8D8F8", "#000000"],
+
+  };
+
 
   cq.cocoon = function(selector) {
     if (arguments.length === 0) {
@@ -184,7 +230,7 @@
         this.tempLayer = cq(1, 1);
       }
 
-      if (width instanceof Image) {
+      if (width instanceof Image || width instanceof ImageBitmap) {
         this.tempLayer.width = width.width;
         this.tempLayer.height = width.height;
         this.tempLayer.context.drawImage(width, 0, 0);
@@ -225,6 +271,33 @@
 
     rgbToHex: function(r, g, b) {
       return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1, 7);
+    },
+
+    extractCanvas: function(o) {
+
+      if (o.canvas) return o.canvas;
+      else return o;
+
+    },
+
+    compare: function(a, b) {
+
+      a = this.extractCanvas(a);
+      b = this.extractCanvas(b);
+
+      a = a.getContext("2d").getImageData(0, 0, a.width, a.height).data;
+      b = b.getContext("2d").getImageData(0, 0, b.width, b.height).data;
+
+      if (a.length !== b.length) return false;
+
+      for (var i = 0; i < a.length; i++) {
+
+        if (a[i] !== b[i]) return false;
+
+      }
+
+      return true;
+
     },
 
     /* author: http://mjijackson.com/ */
@@ -380,24 +453,52 @@
 
     },
 
-    createCanvas: function(width, height) {
-      var result = document.createElement("canvas");
+    reuse: function(object) {
 
-      if (arguments[0] instanceof Image || arguments[0] instanceof Canvas) {
-        var image = arguments[0];
-        result.width = image.width;
-        result.height = image.height;
-        result.getContext("2d").drawImage(image, 0, 0);
+      return this.recycle(object);
+
+    },
+
+    recycle: function(object) {
+
+      if (object instanceof CanvasQuery.Layer) {
+
+        this.poolArray.push(object.canvas);
+
       } else {
-        result.width = width;
-        result.height = height;
+
+        this.poolArray.push(object);
+
       }
 
+    },
+
+    createCanvas: function(width, height) {
+
+      var result = document.createElement("canvas");
+
+      if (arguments[0] instanceof Image || arguments[0] instanceof Canvas || arguments[0] instanceof ImageBitmap) {
+
+        var image = arguments[0];
+
+        result.width = image.width;
+        result.height = image.height;
+
+        result.getContext("2d").drawImage(image, 0, 0);
+
+      } else {
+
+        result.width = width;
+        result.height = height;
+
+      }
 
       return result;
+
     },
 
     createCocoonCanvas: function(width, height) {
+
       var result = document.createElement("screencanvas");
 
       if (arguments[0] instanceof Image) {
@@ -411,24 +512,31 @@
       }
 
       return result;
+
     },
 
     createImageData: function(width, height) {
+
       return cq.createCanvas(width, height).getContext("2d").createImageData(width, height);
+
     }
 
   });
 
   cq.Layer = function(canvas) {
+
     this.context = canvas.getContext("2d");
     this.canvas = canvas;
     this.alignX = 0;
     this.alignY = 0;
     this.aligned = false;
     this.update();
+
   };
 
   cq.Layer.prototype = {
+
+    constructor: cq.Layer,
 
     update: function() {
 
@@ -436,19 +544,25 @@
 
       if (typeof this.smoothing !== "undefined") smoothing = this.smoothing;
 
-      this.context.webkitImageSmoothingEnabled = smoothing;
       this.context.mozImageSmoothingEnabled = smoothing;
       this.context.msImageSmoothingEnabled = smoothing;
+      this.context.webkitImageSmoothingEnabled = smoothing;
       this.context.imageSmoothingEnabled = smoothing;
+      this.context.textBaseline = cq.textBaseline;
 
       if (COCOONJS) Cocoon.Utils.setAntialias(smoothing);
     },
 
     appendTo: function(selector) {
+
       if (typeof selector === "object") {
+
         var element = selector;
+
       } else {
+
         var element = document.querySelector(selector);
+
       }
 
       element.appendChild(this.canvas);
@@ -457,15 +571,25 @@
     },
 
     a: function(a) {
+
       if (arguments.length) {
+
         this.previousAlpha = this.globalAlpha();
+
         return this.globalAlpha(a);
-      } else
+
+      } else {
+
         return this.globalAlpha();
+
+      }
+
     },
 
     ra: function() {
+
       return this.a(this.previousAlpha);
+
     },
     /*
         drawImage: function() {
@@ -545,51 +669,147 @@
     fillRect: function() {
 
       if (this.alignX || this.alignY) {
-        arguments[0] -= arguments[2] * this.alignX | 0;
-        arguments[1] -= arguments[3] * this.alignY | 0;
+
+        this.context.fillRect(arguments[0] - arguments[2] * this.alignX | 0, arguments[1] - arguments[3] * this.alignY | 0, arguments[2], arguments[3]);
+
+      } else {
+
+        this.context.fillRect(arguments[0], arguments[1], arguments[2], arguments[3]);
+
       }
 
-      cq.fastApply(this.context.fillRect, this.context, arguments);
+      // cq.fastApply(this.context.fillRect, this.context, arguments);
 
       return this;
 
     },
 
-    drawImage: function() {
+    strokeRect: function() {
 
       if (this.alignX || this.alignY) {
-        if (arguments.length === 3) {
-          arguments[1] -= arguments[0].width * this.alignX | 0;
-          arguments[2] -= arguments[0].height * this.alignY | 0;
-        } else if (arguments.length === 9) {
-          arguments[5] -= arguments[7] * this.alignX | 0;
-          arguments[6] -= arguments[8] * this.alignY | 0;
-        }
+
+        this.context.strokeRect(arguments[0] - arguments[2] * this.alignX | 0, arguments[1] - arguments[3] * this.alignY | 0, arguments[2], arguments[3]);
+
+      } else {
+
+        this.context.strokeRect(arguments[0], arguments[1], arguments[2], arguments[3]);
+
       }
 
-      cq.fastApply(this.context.drawImage, this.context, arguments);
+      // cq.fastApply(this.context.strokeRect, this.context, arguments);
+
+      return this;
+
+    },
+
+    drawImage: function(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) {
+
+      if (this.alignX || this.alignY) {
+
+        if (sWidth == null) {
+          sx -= image.width * this.alignX | 0;
+          sy -= image.height * this.alignY | 0;
+        } else {
+          dx -= dWidth * this.alignX | 0;
+          dy -= dHeight * this.alignY | 0;
+        }
+
+      }
+
+      if (sWidth == null) {
+
+        this.context.drawImage(image, sx, sy);
+
+      } else if (dx == null) {
+
+        this.context.drawImage(image, sx, sy, sWidth, sHeight);
+
+      } else {
+
+        this.context.drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+
+      }
+
+      // cq.fastApply(this.context.drawImage, this.context, arguments);
+
+      return this;
+
+    },
+
+    drawImageCentered: function(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) {
+
+      if (sWidth == null) {
+        sx -= image.width * 0.5 | 0;
+        sy -= image.height * 0.5 | 0;
+      } else {
+        dx -= dWidth * 0.5 | 0;
+        dy -= dHeight * 0.5 | 0;
+      }
+
+      if (sWidth == null) {
+
+        this.context.drawImage(image, sx, sy);
+
+      } else if (dx == null) {
+
+        this.context.drawImage(image, sx, sy, sWidth, sHeight);
+
+      } else {
+
+        this.context.drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+
+      }
 
       return this;
 
     },
 
     save: function() {
+
       this.prevAlignX = this.alignX;
       this.prevAlignY = this.alignY;
 
       this.context.save();
 
       return this;
+
     },
 
     restore: function() {
 
       this.realign();
       this.context.restore();
+
       return this;
+
     },
 
     drawTile: function(image, x, y, frameX, frameY, frameWidth, frameHeight, frames, frame) {
+
+    },
+
+    checkerboard: function(x, y, w, h, grid, colorA, colorB) {
+
+      var tx = w / grid | 0;
+      var ty = h / grid | 0;
+
+      this.save();
+      this.rect(x, y, w, h).clip();
+
+      for (var i = 0; i <= tx; i++) {
+        for (var j = 0; j <= ty; j++) {
+
+
+          if (j % 2) var color = i % 2 ? colorA : colorB;
+          else var color = i % 2 ? colorB : colorA;
+
+          this.fillStyle(color);
+          this.fillRect(x + i * grid, y + j * grid, grid, grid);
+
+        }
+      }
+
+      this.restore();
 
     },
 
@@ -600,7 +820,8 @@
       this.drawRegion(
         atlas.image,
         frame.region,
-        x - frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX, y - frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
+        x - frame.width * this.alignX + frame.offset[0] + frame.region[2] * this.alignX,
+        y - frame.height * this.alignY + frame.offset[1] + frame.region[3] * this.alignY
       );
 
       return this;
@@ -620,22 +841,39 @@
     },
 
     drawRegion: function(image, region, x, y, scale) {
+
       scale = scale || 1;
 
       return this.drawImage(
         image, region[0], region[1], region[2], region[3],
         x | 0, y | 0, region[2] * scale | 0, region[3] * scale | 0
       );
+
+    },
+
+    drawRegionCentered: function(image, region, x, y, scale) {
+
+      scale = scale || 1;
+
+      return this.drawImageCentered(
+        image, region[0], region[1], region[2], region[3],
+        x | 0, y | 0, region[2] * scale | 0, region[3] * scale | 0
+      );
+
     },
 
     cache: function() {
+
       return this.clone().canvas;
 
       /* FFS .... image.src is no longer synchronous when assigning dataURL */
 
       var image = new Image;
+
       image.src = this.canvas.toDataURL();
+
       return image;
+
     },
 
     blendOn: function(what, mode, mix) {
@@ -657,6 +895,8 @@
       }
 
       this.putImageData(imgdata, 0, 0); // put image data to canvas
+
+      return this;
     },
 
 
@@ -748,45 +988,79 @@
     },
 
     set: function(properties) {
+
       cq.extend(this.context, properties);
+
     },
 
     resize: function(width, height) {
+
       var w = width,
         h = height;
 
       if (arguments.length === 1) {
+
         w = arguments[0] * this.canvas.width | 0;
         h = arguments[0] * this.canvas.height | 0;
+
       } else {
 
         if (height === false) {
+
           if (this.canvas.width > width) {
+
             h = this.canvas.height * (width / this.canvas.width) | 0;
             w = width;
+
           } else {
+
             w = this.canvas.width;
             h = this.canvas.height;
+
           }
+
         } else if (width === false) {
+
           if (this.canvas.width > width) {
+
             w = this.canvas.width * (height / this.canvas.height) | 0;
             h = height;
+
           } else {
+
             w = this.canvas.width;
             h = this.canvas.height;
+
           }
+
         }
+
       }
 
       var cqresized = cq(w, h).drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, w, h);
+
       this.canvas = cqresized.canvas;
       this.context = cqresized.context;
 
       return this;
+
+    },
+
+    resizeBounds: function(width, height) {
+
+      var temp = cq(width, height);
+
+      temp.drawImage(this.canvas, 0, 0);
+
+      this.canvas = temp.canvas;
+      this.context = temp.context;
+
+      return this;
+
     },
 
     imageLine: function(image, region, x, y, ex, ey, scale) {
+
       if (!region) region = [0, 0, image.width, image.height];
 
       var distance = cq.distance(x, y, ex, ey);
@@ -807,6 +1081,7 @@
       this.restore();
 
       return this;
+
     },
 
     trim: function(color, changes) {
@@ -860,17 +1135,21 @@
     },
 
     matchPalette: function(palette) {
+
       var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
       var rgbPalette = [];
 
       for (var i = 0; i < palette.length; i++) {
+
         rgbPalette.push(cq.color(palette[i]));
+
       }
 
-
       for (var i = 0; i < imgData.data.length; i += 4) {
+
         var difList = [];
+
         if (!imgData.data[i + 3]) continue;
 
         for (var j = 0; j < rgbPalette.length; j++) {
@@ -895,6 +1174,7 @@
         imgData.data[i + 2] = paletteRgb[2];
 
         /* dithering */
+
         //imgData.data[i + 3] = (255 * Math.random() < imgData.data[i + 3]) ? 255 : 0;
 
         //imgData.data[i + 3] = imgData.data[i + 3] > 128 ? 255 : 0;
@@ -911,6 +1191,7 @@
       this.context.putImageData(imgData, 0, 0);
 
       return this;
+
     },
 
     getPalette: function() {
@@ -932,31 +1213,41 @@
 
     },
 
-    polygon: function(array) {
+    polygon: function(array, x, y) {
+
+      if (x === undefined) {
+        x = 0;
+      }
+      if (y === undefined) {
+        y = 0;
+      }
 
       this.beginPath();
 
-      this.moveTo(array[0][0], array[0][1]);
+      this.moveTo(array[0][0] + x, array[0][1] + y);
 
       for (var i = 1; i < array.length; i++) {
-        this.lineTo(array[i][0], array[i][1]);
+        this.lineTo(array[i][0] + x, array[i][1] + y);
       }
 
       this.closePath();
 
       return this;
+
     },
 
     fillPolygon: function(polygon) {
-      this.beginPath();
+
       this.polygon(polygon);
       this.fill();
+
     },
 
     strokePolygon: function(polygon) {
-      this.beginPath();
+
       this.polygon(polygon);
       this.stroke();
+
     },
 
     colorToMask: function(color, inverted) {
@@ -1418,8 +1709,9 @@
         height: lines.length * h,
         width: maxWidth,
         lines: lines.length,
-        lineHeight: h
+        fontHeight: h
       }
+
     },
 
     repeatImageRegion: function(image, sx, sy, sw, sh, dx, dy, dw, dh) {
@@ -1442,13 +1734,19 @@
       // if (!env.details) return this;
 
       if (arguments.length < 9) {
+
         this.repeatImageRegion(image, 0, 0, image.width, image.height, x, y, w, h);
+
       } else {
+
         this.repeatImageRegion.apply(this, arguments);
+
       }
 
       return this;
     },
+
+    borderImageEmptyRegion: [0, 0, 0, 0],
 
     borderImage: function(image, x, y, w, h, t, r, b, l, fill) {
 
@@ -1456,41 +1754,88 @@
 
       if (typeof t === "object") {
 
-        var bottomLeft = t.bottomLeft || [0, 0, 0, 0];
-        var bottomRight = t.bottomRight || [0, 0, 0, 0];
-        var topLeft = t.topLeft || [0, 0, 0, 0];
-        var topRight = t.topRight || [0, 0, 0, 0];
+        var region = t.region;
 
-        var clh = bottomLeft[3] + topLeft[3];
-        var crh = bottomRight[3] + topRight[3];
-        var ctw = topLeft[2] + topRight[2];
-        var cbw = bottomLeft[2] + bottomRight[2];
+        if (!region) {
 
-        t.fillPadding = [0, 0, 0, 0];
+          region = this.borderImageEmptyRegion;
+          region[2] = image.width;
+          region[3] = image.height;
 
-        if (t.left) t.fillPadding[0] = t.left[2];
-        if (t.top) t.fillPadding[1] = t.top[3];
-        if (t.right) t.fillPadding[2] = t.right[2];
-        if (t.bottom) t.fillPadding[3] = t.bottom[3];
-
-        // if (!t.fillPadding) t.fillPadding = [0, 0, 0, 0];
-
-        if (t.fill) {
-          this.drawImage(image, t.fill[0], t.fill[1], t.fill[2], t.fill[3], x + t.fillPadding[0], y + t.fillPadding[1], w - t.fillPadding[2] - t.fillPadding[0], h - t.fillPadding[3] - t.fillPadding[1]);
-        } else {
-          // this.fillRect(x + t.fillPadding[0], y + t.fillPadding[1], w - t.fillPadding[2] - t.fillPadding[0], h - t.fillPadding[3] - t.fillPadding[1]);
         }
 
-        if (t.left) this[t.left[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.left[0], t.left[1], t.left[2], t.left[3], x, y + topLeft[3], t.left[2], h - clh);
-        if (t.right) this[t.right[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.right[0], t.right[1], t.right[2], t.right[3], x + w - t.right[2], y + topRight[3], t.right[2], h - crh);
-        if (t.top) this[t.top[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.top[0], t.top[1], t.top[2], t.top[3], x + topLeft[2], y, w - ctw, t.top[3]);
-        if (t.bottom) this[t.bottom[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.bottom[0], t.bottom[1], t.bottom[2], t.bottom[3], x + bottomLeft[2], y + h - t.bottom[3], w - cbw, t.bottom[3]);
+        if (t.padding) {
 
-        if (t.bottomLeft) this.drawImage(image, t.bottomLeft[0], t.bottomLeft[1], t.bottomLeft[2], t.bottomLeft[3], x, y + h - t.bottomLeft[3], t.bottomLeft[2], t.bottomLeft[3]);
-        if (t.topLeft) this.drawImage(image, t.topLeft[0], t.topLeft[1], t.topLeft[2], t.topLeft[3], x, y, t.topLeft[2], t.topLeft[3]);
-        if (t.topRight) this.drawImage(image, t.topRight[0], t.topRight[1], t.topRight[2], t.topRight[3], x + w - t.topRight[2], y, t.topRight[2], t.topRight[3]);
-        if (t.bottomRight) this.drawImage(image, t.bottomRight[0], t.bottomRight[1], t.bottomRight[2], t.bottomRight[3], x + w - t.bottomRight[2], y + h - t.bottomRight[3], t.bottomRight[2], t.bottomRight[3]);
+          var padding = t.padding;
 
+          if (w > padding * 2 && h > padding * 2) {
+
+            this.drawImage(image,
+              region[0] + padding,
+              region[1] + padding, (region[2] - padding * 2), (region[3] - padding * 2),
+              x + padding, y + padding,
+              w - padding * 2,
+              h - padding * 2
+            );
+
+
+            this.drawImage(image, region[0], region[1] + padding, padding, region[3] - 2 * padding, x, y + padding, padding, h - padding * 2);
+            this.drawImage(image, region[0] + region[2] - padding, region[1] + padding, padding, region[3] - 2 * padding, x + w - padding, y + padding, padding, h - padding * 2);
+            this.drawImage(image, region[0] + padding, region[1], region[2] - padding * 2, padding, x + padding, y, w - padding * 2, padding);
+            this.drawImage(image, region[0] + padding, region[1] + region[3] - padding, region[2] - padding * 2, padding, x + padding, y + h - padding, w - padding * 2, padding);
+
+            this.drawImage(image, region[0], region[1], padding, padding, x, y, padding, padding);
+            this.drawImage(image, region[0], region[1] + region[3] - padding, padding, padding, x, y + h - padding, padding, padding);
+            this.drawImage(image, region[0] + region[2] - padding, region[1], padding, padding, x + w - padding, y, padding, padding);
+            this.drawImage(image, region[0] + region[2] - padding, region[1] + region[3] - padding, padding, padding, x + w - padding, y + h - padding, padding, padding);
+
+          }
+
+        }
+
+        /* complex */
+        else {
+
+          var bottomLeft = t.bottomLeft || [0, 0, 0, 0];
+          var bottomRight = t.bottomRight || [0, 0, 0, 0];
+          var topLeft = t.topLeft || [0, 0, 0, 0];
+          var topRight = t.topRight || [0, 0, 0, 0];
+
+          var clh = bottomLeft[3] + topLeft[3];
+          var crh = bottomRight[3] + topRight[3];
+          var ctw = topLeft[2] + topRight[2];
+          var cbw = bottomLeft[2] + bottomRight[2];
+
+          t.fillPadding = [0, 0, 0, 0];
+
+          if (t.left) t.fillPadding[0] = t.left[2];
+          if (t.top) t.fillPadding[1] = t.top[3];
+          if (t.right) t.fillPadding[2] = t.right[2];
+          if (t.bottom) t.fillPadding[3] = t.bottom[3];
+
+          // if (!t.fillPadding) t.fillPadding = [0, 0, 0, 0];
+
+          if (t.fill) {
+            this.drawImage(image, t.fill[0], t.fill[1], t.fill[2], t.fill[3], x + t.fillPadding[0], y + t.fillPadding[1], w - t.fillPadding[2] - t.fillPadding[0], h - t.fillPadding[3] - t.fillPadding[1]);
+          } else {
+            // this.fillRect(x + t.fillPadding[0], y + t.fillPadding[1], w - t.fillPadding[2] - t.fillPadding[0], h - t.fillPadding[3] - t.fillPadding[1]);
+          }
+
+          /* sides */
+
+          if (t.left) this[t.left[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.left[0], t.left[1], t.left[2], t.left[3], x, y + topLeft[3], t.left[2], h - clh);
+          if (t.right) this[t.right[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.right[0], t.right[1], t.right[2], t.right[3], x + w - t.right[2], y + topRight[3], t.right[2], h - crh);
+          if (t.top) this[t.top[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.top[0], t.top[1], t.top[2], t.top[3], x + topLeft[2], y, w - ctw, t.top[3]);
+          if (t.bottom) this[t.bottom[4] === "stretch" ? "drawImage" : "repeatImage"](image, t.bottom[0], t.bottom[1], t.bottom[2], t.bottom[3], x + bottomLeft[2], y + h - t.bottom[3], w - cbw, t.bottom[3]);
+
+          /* corners */
+
+          if (t.bottomLeft) this.drawImage(image, t.bottomLeft[0], t.bottomLeft[1], t.bottomLeft[2], t.bottomLeft[3], x, y + h - t.bottomLeft[3], t.bottomLeft[2], t.bottomLeft[3]);
+          if (t.topLeft) this.drawImage(image, t.topLeft[0], t.topLeft[1], t.topLeft[2], t.topLeft[3], x, y, t.topLeft[2], t.topLeft[3]);
+          if (t.topRight) this.drawImage(image, t.topRight[0], t.topRight[1], t.topRight[2], t.topRight[3], x + w - t.topRight[2], y, t.topRight[2], t.topRight[3]);
+          if (t.bottomRight) this.drawImage(image, t.bottomRight[0], t.bottomRight[1], t.bottomRight[2], t.bottomRight[3], x + w - t.bottomRight[2], y + h - t.bottomRight[3], t.bottomRight[2], t.bottomRight[3]);
+
+        }
 
       } else {
 
@@ -1547,7 +1892,7 @@
       pixel.data[0] = color[0];
       pixel.data[1] = color[1];
       pixel.data[2] = color[2];
-      pixel.data[3] = 1.0;
+      pixel.data[3] = 255;
 
       this.putImageData(pixel, x, y);
 
@@ -1555,23 +1900,58 @@
     },
 
     getPixel: function(x, y) {
+
       var pixel = this.context.getImageData(x, y, 1, 1).data;
+
       return cq.color([pixel[0], pixel[1], pixel[2], pixel[3]]);
+
+    },
+
+    clearRect: function(x, y, w, h) {
+
+      this.context.clearRect(x, y, w, h);
+
+      return this;
+
+    },
+
+    fill: function() {
+
+      this.context.fill();
+
+      return this;
+
+    },
+
+    stroke: function() {
+
+      this.context.stroke();
+
+      return this;
+
     },
 
     createImageData: function(width, height) {
+
       if (false && this.context.createImageData) {
+
         return this.context.createImageData.apply(this.context, arguments);
+
       } else {
+
         if (!this.emptyCanvas) {
+
           this.emptyCanvas = cq.createCanvas(width, height);
           this.emptyCanvasContext = this.emptyCanvas.getContext("2d");
+
         }
 
         this.emptyCanvas.width = width;
         this.emptyCanvas.height = height;
+
         return this.emptyCanvasContext.getImageData(0, 0, width, height);
       }
+
     },
 
     strokeLine: function(x1, y1, x2, y2) {
@@ -1592,38 +1972,72 @@
 
     },
 
-    setLineDash: function(dash) {
-      if (this.context.setLineDash) {
-        this.context.setLineDash(dash);
-        return this;
-      } else return this;
+    shadowOffset: function(x, y) {
+
+      this.context.shadowOffsetX = x;
+      this.context.shadowOffsetY = y;
+
+      return this;
+
     },
 
-    measureText: function() {
-      return this.context.measureText.apply(this.context, arguments);
+    noLineDash: [],
+    tempLineDash: [2, 2],
+
+    setLineDash: function(dash) {
+
+      if (typeof dash === "number") {
+
+        this.tempLineDash[0] = dash;
+        this.tempLineDash[1] = dash;
+
+        dash = this.tempLineDash;
+
+      }
+
+      this.context.setLineDash(dash ? dash : this.noLineDash);
+
+      return this;
+
+    },
+
+    measureText: function(text) {
+
+      return this.context.measureText(text);
+
     },
 
     getLineDash: function() {
+
       return this.context.getLineDash();
+
     },
 
-    createRadialGradient: function() {
-      return this.context.createRadialGradient.apply(this.context, arguments);
+    createRadialGradient: function(x0, y0, r0, x1, y1, r1) {
+
+      return this.context.createRadialGradient(x0, y0, r0, x1, y1, r1);
+
     },
 
-    createLinearGradient: function() {
-      return this.context.createLinearGradient.apply(this.context, arguments);
+    createLinearGradient: function(x0, y0, x1, y1) {
+
+      return this.context.createLinearGradient(x0, y0, x1, y1);
+
     },
 
-    createPattern: function() {
-      return this.context.createPattern.apply(this.context, arguments);
+    createPattern: function(image, repeat) {
+
+      return this.context.createPattern(image, repeat);
+
     },
 
-    getImageData: function() {
-      return this.context.getImageData.apply(this.context, arguments);
+    getImageData: function(sx, sy, sw, sh) {
+
+      return this.context.getImageData(sx, sy, sw, sh);
+
     },
 
-    /* If you think that I am retarded because I use fillRect to set 
+    /* If you think that I am retarded because I use fillRect to set
        pixels - read about premultipled alpha in canvas */
 
     writeMeta: function(data) {
@@ -1666,6 +2080,73 @@
             x = this.width - 1;
           }
         }
+      }
+
+      return this;
+
+    },
+
+    /* setters / getters */
+
+    strokeStyle: function(style) {
+
+      if (style == null) {
+
+        return this.context.strokeStyle;
+
+      } else {
+
+        this.context.strokeStyle = style;
+
+        return this;
+
+      }
+
+    },
+
+    fillStyle: function(style) {
+
+      if (style == null) {
+
+        return this.context.fillStyle;
+
+      } else {
+
+        this.context.fillStyle = style;
+
+        return this;
+
+      }
+
+    },
+
+    font: function(font) {
+
+      if (font == null) {
+
+        return this.context.font;
+
+      } else {
+
+        this.context.font = font;
+
+        return this;
+      }
+
+    },
+
+    filter: function(filter) {
+
+      if (filter) {
+
+        this.context.filter = filter;
+
+        return this;
+
+      } else {
+
+        return this.context.filter;
+
       }
 
       return this;
@@ -1749,9 +2230,10 @@
 
   /* extend Layer with drawing context methods */
 
-  var methods = ["arc", "arcTo", "beginPath", "bezierCurveTo", "clearRect", "clip", "closePath", "createLinearGradient", "createRadialGradient", "createPattern", "drawFocusRing", "drawImage", "fill", "fillRect", "fillText", "getImageData", "isPointInPath", "lineTo", "measureText", "moveTo", "putImageData", "quadraticCurveTo", "rect", "restore", "rotate", "save", "scale", "setTransform", "stroke", "strokeRect", "strokeText", "transform", "translate", "setLineDash"];
+  var methods = ["arc", "arcTo", "beginPath", "bezierCurveTo", "clip", "closePath", "createLinearGradient", "createRadialGradient", "createPattern", "drawFocusRing", "drawImage", "fill", "fillRect", "fillText", "getImageData", "isPointInPath", "lineTo", "measureText", "moveTo", "putImageData", "quadraticCurveTo", "rect", "restore", "rotate", "scale", "setTransform", "strokeRect", "strokeText", "transform", "translate", "setLineDash"];
 
   for (var i = 0; i < methods.length; i++) {
+
     var name = methods[i];
 
     if (cq.Layer.prototype[name]) continue;
@@ -1759,7 +2241,17 @@
     cq.Layer.prototype[name] = (function(method) {
 
       return function() {
-        cq.fastApply(method, this.context, arguments);
+
+        var args = new Array(arguments.length);
+
+        for (var i = 0; i < args.length; ++i) {
+
+          args[i] = arguments[i];
+
+        }
+
+        cq.fastApply(method, this.context, args);
+
         return this;
       }
 
@@ -1813,11 +2305,14 @@
 
   /* create setters and getters */
 
-  var properties = ["canvas", "fillStyle", "font", "globalAlpha", "globalCompositeOperation", "lineCap", "lineJoin", "lineWidth", "miterLimit", "shadowOffsetX", "shadowOffsetY", "shadowBlur", "shadowColor", "strokeStyle", "textAlign", "textBaseline", "lineDashOffset"];
+  var properties = ["globalAlpha", "globalCompositeOperation", "lineCap", "lineJoin", "lineWidth", "miterLimit", "shadowOffsetX", "shadowOffsetY", "shadowBlur", "shadowColor", "textAlign", "textBaseline", "lineDashOffset"];
 
   for (var i = 0; i < properties.length; i++) {
+
     var name = properties[i];
+
     if (!cq.Layer.prototype[name]) cq.Layer.prototype[name] = Function("if(arguments.length) { this.context." + name + " = arguments[0]; return this; } else { return this.context." + name + "; }");
+
   };
 
   /* color */
