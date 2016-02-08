@@ -527,6 +527,8 @@
 
     this.context = canvas.getContext("2d");
     this.canvas = canvas;
+    this.prevAlignX = [];
+    this.prevAlignY = [];
     this.alignX = 0;
     this.alignY = 0;
     this.aligned = false;
@@ -612,8 +614,8 @@
 
     realign: function() {
 
-      this.alignX = this.prevAlignX;
-      this.alignY = this.prevAlignY;
+      this.alignX = this.prevAlignX.pop();
+      this.alignY = this.prevAlignY.pop();
 
       return this;
 
@@ -766,8 +768,8 @@
 
     save: function() {
 
-      this.prevAlignX = this.alignX;
-      this.prevAlignY = this.alignY;
+      this.prevAlignX.push(this.alignX);
+      this.prevAlignY.push(this.alignY);
 
       this.context.save();
 
