@@ -1,11 +1,11 @@
-/*     
+/*
 
   Canvas Query r6
-  
+
   http://canvasquery.com
-  
+
   (c) 2012-2015 http://rezoner.net
-  
+
   Canvas Query may be freely distributed under the MIT license.
 
   r6
@@ -18,7 +18,7 @@
 
   r5
 
-  ! fixed: leaking arguments in fastApply bailing out optimization 
+  ! fixed: leaking arguments in fastApply bailing out optimization
   + cacheText
   + compare
   + checkerboard
@@ -614,8 +614,8 @@
 
     realign: function() {
 
-      this.alignX = this.prevAlignX.pop();
-      this.alignY = this.prevAlignY.pop();
+      this.alignX = this.prevAlignX[this.prevAlignX.length - 1];
+      this.alignY = this.prevAlignY[this.prevAlignY.length - 1];
 
       return this;
 
@@ -780,6 +780,8 @@
     restore: function() {
 
       this.realign();
+      this.alignX = this.prevAlignX.pop();
+      this.alignY = this.prevAlignY.pop();
       this.context.restore();
 
       return this;
