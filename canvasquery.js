@@ -1,12 +1,21 @@
 /*     
 
-  Canvas Query r7
+  Canvas Query r9
   
   http://canvasquery.com
   
   (c) 2012-2016 http://rezoner.net
   
   Canvas Query may be freely distributed under the MIT license.
+
+  r9
+
+  + even more precise fontHeight and fontTop
+
+  r8
+
+  + improved matchPalette performance
+  + defaultFont
 
   r7
 
@@ -94,8 +103,9 @@
   };
 
   cq.lineSpacing = 1.0;
-  cq.defaultFont = "Arial";
+  cq.defaultFont = "";
   cq.textBaseline = "alphabetic";
+  cq.matchPalettePrecision = 10;
 
   cq.palettes = {
 
@@ -690,6 +700,9 @@
       this.context.msImageSmoothingEnabled = smoothing;
       this.context.webkitImageSmoothingEnabled = smoothing;
       this.context.imageSmoothingEnabled = smoothing;
+
+      if (cq.defaultFont) this.context.font = cq.defaultFont;
+
       this.context.textBaseline = cq.textBaseline;
 
       if (COCOONJS) Cocoon.Utils.setAntialias(smoothing);
@@ -808,20 +821,29 @@
 
     },
 
-    fillText: function(text, x, y) {
+   webkit: ('WebkitAppearance' in document.documentElement.style),
+
+    fillText: function(text, x, y, gap) {
+
+      text = String(text);
+
+      if (!text.length) return;
 
       var webkitHack = !cq.smoothing && (this.fontHeight() <= 64) && ('WebkitAppearance' in document.documentElement.style);
 
       if (webkitHack) {
 
-        var scale = 4;
+        var scale = this.webkit ? 4 : 5;
 
         var canvas = cq.pool();
         var context = canvas.getContext("2d");
 
         context.font = this.context.font;
 
-        var width = Math.ceil(context.measureText(text).width);
+        var realWidth = context.measureText(text).width;
+        var width = Math.ceil(realWidth);
+        var gap = gap || (width - realWidth);
+
         var height = this.fontHeight();
 
         canvas.width = width * scale;
@@ -837,7 +859,7 @@
         context.textBaseline = "top";
 
         context.scale(scale, scale);
-        context.fillText(text, 0, -this.fontTop());
+        context.fillText(text, gap, -this.fontTop());
 
         if (this.context.textAlign === "center") x -= width * 0.5;
         else if (this.context.textAlign === "right") x -= width;
@@ -846,7 +868,9 @@
 
       } else {
 
+
         this.context.fillText(text, x, y - this.fontTop());
+
 
       }
 
@@ -1129,8 +1153,10 @@
       var f = this.fillStyle();
       var padding = padding || 2;
 
-      this.fillStyle(background).fillRect(x - w / 2 - padding * 2, y - padding, w + padding * 4, h + padding * 2)
-      this.fillStyle(f).textAlign("center").textBaseline("top").fillText(text, x, y);
+      var a = this.context.textAlign;
+
+      this.fillStyle(background).fillRect(x - padding * 2, y - padding, w + padding * 4, h + padding * 2)
+      this.fillStyle(f).textAlign("left").textBaseline("top").fillText(text, x, y);
 
       return this;
     },
@@ -1329,59 +1355,85 @@
 
     matchPalette: function(palette) {
 
-      var imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      if (!palette.matches) palette.matches = new Map;
 
-      var rgbPalette = [];
+      if (!palette.colors) {
 
-      for (var i = 0; i < palette.length; i++) {
+        palette.colors = [];
 
-        rgbPalette.push(cq.color(palette[i]));
+        for (var i = 0; i < palette.length; i++) {
 
+          palette.colors.push(cq.color(palette[i]));
+
+        }
       }
 
-      for (var i = 0; i < imgData.data.length; i += 4) {
+      var imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var pixels = imageData.data;
+
+      for (var i = 0; i < pixels.length; i += 4) {
 
         var difList = [];
 
-        if (!imgData.data[i + 3]) continue;
+        if (!pixels[i + 3]) continue;
 
-        for (var j = 0; j < rgbPalette.length; j++) {
-          var rgbVal = rgbPalette[j];
-          var rDif = Math.abs(imgData.data[i] - rgbVal[0]),
-            gDif = Math.abs(imgData.data[i + 1] - rgbVal[1]),
-            bDif = Math.abs(imgData.data[i + 2] - rgbVal[2]);
-          difList.push(rDif + gDif + bDif);
-        }
+        var key =
+          (pixels[i + 0] / cq.matchPalettePrecision | 0) * cq.matchPalettePrecision +
+          (pixels[i + 1] / cq.matchPalettePrecision | 0) * cq.matchPalettePrecision * 1000 +
+          (pixels[i + 2] / cq.matchPalettePrecision | 0) * cq.matchPalettePrecision * 1000000;
 
-        var closestMatch = 0;
 
-        for (var j = 0; j < palette.length; j++) {
-          if (difList[j] < difList[closestMatch]) {
-            closestMatch = j;
+        if (!palette.matches.has(key)) {
+
+          for (var j = 0; j < palette.colors.length; j++) {
+
+            var rgb = palette.colors[j];
+            var rDif = Math.abs(pixels[i] - rgb[0]);
+            var gDif = Math.abs(pixels[i + 1] - rgb[1])
+            var bDif = Math.abs(pixels[i + 2] - rgb[2]);
+
+            difList.push(rDif + gDif + bDif);
+
           }
+
+          var closestMatch = 0;
+
+          for (var j = 0; j < palette.length; j++) {
+
+            if (difList[j] < difList[closestMatch]) {
+
+              closestMatch = j;
+
+            }
+
+          }
+
+          palette.matches.set(key, palette.colors[closestMatch]);
+
         }
 
-        var paletteRgb = cq.hexToRgb(palette[closestMatch]);
-        imgData.data[i] = paletteRgb[0];
-        imgData.data[i + 1] = paletteRgb[1];
-        imgData.data[i + 2] = paletteRgb[2];
+        var matchedColor = palette.matches.get(key);
+
+        pixels[i] = matchedColor[0];
+        pixels[i + 1] = matchedColor[1];
+        pixels[i + 2] = matchedColor[2];
 
         /* dithering */
 
-        //imgData.data[i + 3] = (255 * Math.random() < imgData.data[i + 3]) ? 255 : 0;
+        //imageData.data[i + 3] = (255 * Math.random() < imageData.data[i + 3]) ? 255 : 0;
 
-        //imgData.data[i + 3] = imgData.data[i + 3] > 128 ? 255 : 0;
+        //imageData.data[i + 3] = imageData.data[i + 3] > 128 ? 255 : 0;
         /*
         if (i % 3 === 0) {
-          imgData.data[i] -= cq.limitValue(imgData.data[i] - 50, 0, 255);
-          imgData.data[i + 1] -= cq.limitValue(imgData.data[i + 1] - 50, 0, 255);
-          imgData.data[i + 2] -= cq.limitValue(imgData.data[i + 2] - 50, 0, 255);
+          imageData.data[i] -= cq.limitValue(imageData.data[i] - 50, 0, 255);
+          imageData.data[i + 1] -= cq.limitValue(imageData.data[i + 1] - 50, 0, 255);
+          imageData.data[i + 2] -= cq.limitValue(imageData.data[i + 2] - 50, 0, 255);
         }
         */
 
       }
 
-      this.context.putImageData(imgData, 0, 0);
+      this.context.putImageData(imageData, 0, 0);
 
       return this;
 
@@ -1792,6 +1844,7 @@
 
     wrappedText: function(text, x, y, maxWidth, lineHeight) {
 
+
       if (maxWidth < 0) maxWidth = 0;
 
       var words = text.split(" ");
@@ -1815,8 +1868,10 @@
         var linesWidth = [0];
 
         for (var i = 0; i < words.length; i++) {
+
           var word = words[i];
-          var wordWidth = this.context.measureText(word).width | 0;
+
+          var wordWidth = Math.ceil(this.context.measureText(word).width);
 
 
           if (wordWidth > maxWidth) {
@@ -1857,6 +1912,12 @@
           }
 
         }
+
+        if (words[i] !== "\n") {
+          lines[line] = lines[line].substr(0, lines[line].length - 1);
+          linesWidth[line] -= spaceWidth;
+        }
+
 
       } else {
 
@@ -1917,8 +1978,9 @@
         temp.textBaseline("top");
 
         /* Use direct fillText as internal inmplementation uses fontWidth() */
+        var oy = 10;
 
-        temp.context.fillText("Play Moog", 20, 10);
+        temp.context.fillText("Play Moog", 20, oy);
 
         var data = temp.getImageData(0, 0, temp.width, temp.height).data;
 
@@ -1930,15 +1992,19 @@
           var x = (i / 4 | 0) % temp.width;
           var y = (i / 4 | 0) / temp.width | 0;
 
-          if (!data[i + 3]) continue;
+          /* A little threshold for anti-alias */
+
+          if (data[i + 3] < 200) continue;
 
           if (y < top) top = y;
           if (y > bottom) bottom = y;
 
         }
 
-        this.fontHeights[font] = Math.abs(top - bottom) + 2;
-        this.fontTops[font] = top - 10;
+        this.fontHeights[font] = bottom - oy + 1;
+        this.fontTops[font] = top - oy;
+
+        console.log(this.context.font, top, bottom, "fontHeight", this.fontHeights[font], "fontTop", this.fontTops[font]);
 
       }
 
@@ -1959,62 +2025,68 @@
 
       var spaceWidth = this.context.measureText(" ").width;
 
+      var line = 0;
+      var lines = [""];
+
+      var width = 0;
+
+      for (var i = 0; i < words.length; i++) {
+
+        var word = words[i];
+        var wordWidth = Math.ceil(this.context.measureText(word).width);
+
+        if (maxWidth && (wordWidth > maxWidth)) {
+
+          if (word.length <= 5) continue;
+
+          var split = word.length / 2 | 0;
+
+          words.splice(i, 1);
+          words.splice(i, 0, "-" + word.substr(split));
+          words.splice(i, 0, word.substr(0, split) + "-");
+
+          i--;
+
+          continue;
+        }
+
+        if (((ox + wordWidth > maxWidth) && maxWidth) || words[i] === "\n") {
+
+          if (ox > width) width = ox;
+
+          lines[++line] = "";
+
+          ox = 0;
+
+        }
+
+        if (words[i] !== "\n") {
+
+          lines[line] += word;
+
+          ox += wordWidth + spaceWidth;
+
+        }
+
+      }
+
       if (maxWidth) {
-        var line = 0;
-        var lines = [""];
 
-        for (var i = 0; i < words.length; i++) {
-          var word = words[i];
-          var wordWidth = this.context.measureText(word).width;
-
-          if (wordWidth + spaceWidth > maxWidth) {
-
-            if (word.length <= 5) continue;
-
-            var split = word.length / 2 | 0;
-
-            words.splice(i, 1);
-            words.splice(i, 0, "-" + word.substr(split));
-            words.splice(i, 0, word.substr(0, split) + "-");
-
-            i--;
-
-            continue;
-          }
-
-          if (ox + wordWidth > maxWidth || words[i] === "\n") {
-            lines[++line] = "";
-            ox = 0;
-          }
-
-          if (words[i] !== "\n") {
-            lines[line] += word;
-            ox += wordWidth + spaceWidth;
-          }
-        }
-
-        if (lines.length > 1) {
-
-          var width = maxWidth;
-
-        } else {
-
-          var width = this.measureText(text).width | 0;
-
-        }
+        var width = maxWidth;
 
       } else {
 
-        var lines = [text];
+        if (!width) {
 
-        var width = this.measureText(text).width | 0;
+          width = this.context.measureText(text).width;
 
+        }
 
       }
 
       return {
         height: lines.length * h,
-        width: width | 0,
+        width: Math.ceil(width),
         lines: lines.length,
         fontHeight: h
       }
@@ -2703,12 +2775,35 @@
     },
 
     a: function(a) {
-      return this.alpha(a);
+
+      if (arguments.length === 1) {
+
+        this[3] = a;
+
+      } else {
+
+        return this[3];
+
+      }
+
+      return this;
+
     },
 
     alpha: function(a) {
-      this[3] = a;
+
+      if (arguments.length === 1) {
+
+        this[3] = a;
+
+      } else {
+
+        return this[3];
+
+      }
+
       return this;
+
     },
 
     fromHsl: function() {
