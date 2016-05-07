@@ -11,6 +11,7 @@
   r9
 
   + even more precise fontHeight and fontTop
+  + textBoundaries and wrappedText use same alg for maxWidth when newline is detected
 
   r8
 
@@ -84,6 +85,8 @@
 
     } else if (selector instanceof ImageBitmap) {
 
+      var canvas = cq.pool();
+
       canvas.width = selector.width;
       canvas.height = selector.height;
       canvas.getContext("2d").drawImage(selector, 0, 0);
@@ -129,7 +132,7 @@
 
   */
 
-   cq.cocoon = function(selector) {
+  cq.cocoon = function(selector) {
     if (arguments.length === 0) {
       var canvas = cq.createCocoonCanvas(window.innerWidth, window.innerHeight);
       window.addEventListener("resize", function() {});
@@ -720,7 +723,7 @@
 
     },
 
-   webkit: ('WebkitAppearance' in document.documentElement.style),
+    webkit: ('WebkitAppearance' in document.documentElement.style),
 
     fillText: function(text, x, y, gap) {
 
@@ -1012,6 +1015,22 @@
       return this;
     },
 
+    posterizeAlpha: function(pc, inc) {
+      pc = pc || 32;
+      inc = inc || 4;
+      var imgdata = this.getImageData(0, 0, this.width, this.height);
+      var data = imgdata.data;
+
+      for (var i = 0; i < data.length; i += inc) {
+
+        data[i + 3] -= data[i + 3] % pc; // set value to nearest of 8 possibilities
+
+      }
+
+      this.putImageData(imgdata, 0, 0); // put image data to canvas
+
+      return this;
+    },
 
     bw: function(pc) {
       pc = 128;
@@ -1338,7 +1357,46 @@
 
     },
 
+    swapColors: function(colors) {
+
+      var colormap = {};
+
+      for (var key in colors) {
+
+        var color = cq.color(key);
+        var index = color[0] + color[1] * 1000 + color[2] * 1000000;
+
+        colormap[index] = cq.color(colors[key]);
+
+      }
+
+      var imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      var pixels = imageData.data;
+
+      for (var i = 0; i < pixels.length; i += 4) {
+
+        if (!pixels[i + 3]) continue;
+
+        var index = pixels[i] + pixels[i + 1] * 1000 + pixels[i + 2] * 1000000;
+
+        if (colormap[index]) {
+
+          pixels[i] = colormap[index][0];
+          pixels[i + 1] = colormap[index][1];
+          pixels[i + 2] = colormap[index][2];
+
+        }
+
+      }
+
+      this.context.putImageData(imageData, 0, 0);
+
+      return this;
+
+    },
+
     getPalette: function() {
+
       var palette = [];
       var sourceData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
       var sourcePixels = sourceData.data;
@@ -1759,6 +1817,13 @@
       this.textBaseline("top");
 
       var spaceWidth = this.context.measureText(" ").width | 0;
+      // var newlineOnly = !maxWidth && text.indexOf("\n") > -1;
+
+      if (!maxWidth && text.indexOf("\n") > -1) {
+
+        maxWidth = this.textBoundaries(text).width;
+
+      }
 
       if (maxWidth) {
 
@@ -1772,8 +1837,7 @@
 
           var wordWidth = Math.ceil(this.context.measureText(word).width);
 
-
-          if (wordWidth > maxWidth) {
+          if (maxWidth && wordWidth > maxWidth) {
 
             /* 4 is still risky, it's valid as long as `-` is the delimiter */
 
@@ -1790,7 +1854,7 @@
             continue;
           }
 
-          if (ox + wordWidth > maxWidth || words[i] === "\n") {
+          if ((ox + wordWidth > maxWidth) || words[i] === "\n") {
 
             lines[line] = lines[line].substr(0, lines[line].length - 1);
             linesWidth[line] -= spaceWidth;
@@ -1837,9 +1901,9 @@
         if (textAlign === "left" || textAlign === "start")
           this.fillText(text, x, oy);
         else if (textAlign === "center")
-          this.fillText(text, x + maxWidth * 0.5 - width * 0.5 | 0, oy);
+          this.fillText(text, x - width * 0.5 | 0, oy);
         else
-          this.fillText(text, x + maxWidth - width, oy);
+          this.fillText(text, x - width, oy);
 
       }
 
@@ -1902,8 +1966,6 @@
 
         this.fontHeights[font] = bottom - oy + 1;
         this.fontTops[font] = top - oy;
-
-        console.log(this.context.font, top, bottom, "fontHeight", this.fontHeights[font], "fontTop", this.fontTops[font]);
 
       }
 
@@ -2048,19 +2110,27 @@
 
           if (w > outset * 2 && h > outset * 2) {
 
-            this.drawImage(image,
-              region[0] + outset,
-              region[1] + outset, (region[2] - outset * 2), (region[3] - outset * 2),
-              x + outset, y + outset,
-              w - outset * 2,
-              h - outset * 2
-            );
+            if (t.fill !== false) {
 
+              this.drawImage(image,
+                region[0] + outset,
+                region[1] + outset, (region[2] - outset * 2), (region[3] - outset * 2),
+                x + outset, y + outset,
+                w - outset * 2,
+                h - outset * 2
+              );
+
+            }
+
+
+            /* edges */
 
             this.drawImage(image, region[0], region[1] + outset, outset, region[3] - 2 * outset, x, y + outset, outset, h - outset * 2);
             this.drawImage(image, region[0] + region[2] - outset, region[1] + outset, outset, region[3] - 2 * outset, x + w - outset, y + outset, outset, h - outset * 2);
             this.drawImage(image, region[0] + outset, region[1], region[2] - outset * 2, outset, x + outset, y, w - outset * 2, outset);
             this.drawImage(image, region[0] + outset, region[1] + region[3] - outset, region[2] - outset * 2, outset, x + outset, y + h - outset, w - outset * 2, outset);
+
+            /* corners */
 
             this.drawImage(image, region[0], region[1], outset, outset, x, y, outset, outset);
             this.drawImage(image, region[0], region[1] + region[3] - outset, outset, outset, x, y + h - outset, outset, outset);
