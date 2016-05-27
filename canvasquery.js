@@ -982,13 +982,13 @@
 
       return this.clone().canvas;
 
-      /* FFS .... image.src is no longer synchronous when assigning dataURL */
+    },
 
-      var image = new Image;
+    popup: function() {
 
-      image.src = this.canvas.toDataURL();
+      window.open(this.canvas.toDataURL());
 
-      return image;
+      return this;
 
     },
 
@@ -1365,6 +1365,7 @@
 
         var color = cq.color(key);
         var index = color[0] + color[1] * 1000 + color[2] * 1000000;
+        // var index = String(color[0]) + "," + String(color[1]) + "," + String(color[2]);
 
         colormap[index] = cq.color(colors[key]);
 
@@ -1378,6 +1379,7 @@
         if (!pixels[i + 3]) continue;
 
         var index = pixels[i] + pixels[i + 1] * 1000 + pixels[i + 2] * 1000000;
+        // var index = String(pixels[i + 0]) + "," + String(pixels[i + 1]) + "," + String(pixels[i + 2]);
 
         if (colormap[index]) {
 
@@ -1798,6 +1800,65 @@
 
     },
 
+    charWidth: function(char) {
+
+      if (!cq.charWidthCache) cq.charWidthCache = new Map();
+
+      if (!cq.charWidthCache.has(this.context.font + char)) {
+
+        var width = this.measureText(char).width;
+
+        cq.charWidthCache.set(this.context.font + char, width);
+
+      }
+
+      return cq.charWidthCache.get(this.context.font + char);
+
+    },
+
+    pixelText: function(text, x, y) {
+
+      var prevTextAlign = this.context.textAlign;
+
+      this.context.textAlign = "left";
+
+      var textWidth = 0;
+
+      if (prevTextAlign === "center") {
+
+        for (var i = 0; i < text.length; i++) {
+
+          var w = this.charWidth(text[i]);
+
+          var o = w - (w | 0);
+
+          textWidth += w + (o > 0.5 ? 1 : 0) | 0;
+
+        }
+
+        x -= textWidth / 2 | 0;
+
+      }
+
+      for (var i = 0; i < text.length; i++) {
+
+        var c = text[i];
+
+        var w = this.charWidth(c);
+
+        var o = w - (w | 0);
+
+        this.context.fillText(c, x, y);
+
+        x += w + (o > 0.5 ? 1 : 0) | 0;
+
+      }
+
+      this.context.textAlign = prevTextAlign;
+
+      return this;
+
+    },
 
     wrappedText: function(text, x, y, maxWidth, lineHeight) {
 
